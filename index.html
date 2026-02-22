@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ANGL — 3D Demo</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="./style.css" />
+    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js"></script>
+  </head>
+  <body>
+    <main class="viewer-main">
+      <canvas id="viewer-canvas" class="viewer-canvas"></canvas>
+
+      <div id="loading-overlay" class="loading-overlay">
+        <div class="loading-bar-track">
+          <div id="loading-progress" class="loading-bar-fill"></div>
+        </div>
+        <span id="loading-text" class="loading-text">loading...</span>
+      </div>
+
+      <div class="viewer-info">
+        ANGL-ASM-MAIN REV-G<br>
+        drag to orbit / scroll to zoom
+      </div>
+
+      <!-- Hidden model-viewer for AR launch -->
+      <model-viewer
+        id="ar-viewer"
+        src="./models/ANGL-ASM-MAIN_REV-G_FULL.glb"
+        ar
+        ar-modes="webxr scene-viewer quick-look"
+        ar-scale="auto"
+        style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;"
+      ></model-viewer>
+
+      <button id="ar-button" class="ar-button" aria-label="View in AR">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M12 3L20 7.5V16.5L12 21L4 16.5V7.5L12 3Z"/>
+          <path d="M12 12L20 7.5"/>
+          <path d="M12 12V21"/>
+          <path d="M12 12L4 7.5"/>
+        </svg>
+        <span>AR</span>
+      </button>
+    </main>
+
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://esm.sh/three@0.171.0",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/",
+        "lil-gui": "https://esm.sh/lil-gui@0.19.2"
+      }
+    }
+    </script>
+    <script type="module" src="./js/main.js"></script>
+    <script>
+      // AR button — activate model-viewer AR on supported devices
+      const arViewer = document.getElementById('ar-viewer');
+      const arButton = document.getElementById('ar-button');
+
+      arViewer.addEventListener('load', () => {
+        if (!arViewer.canActivateAR) {
+          arButton.classList.add('hidden');
+        }
+      });
+
+      arButton.addEventListener('click', () => {
+        arViewer.activateAR();
+      });
+    </script>
+  </body>
+</html>
