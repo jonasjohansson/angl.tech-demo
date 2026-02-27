@@ -105,23 +105,23 @@ export function createGUI(ctx) {
   mat.add(settings, 'clearcoat', 0, 1, 0.01).onChange(() => { updateMaterials(currentModel, settings); });
   mat.add(settings, 'clearcoatRoughness', 0, 1, 0.01).onChange(() => { updateMaterials(currentModel, settings); });
 
-  // Case panel color (Solid2 objects)
-  if (toggleMap) {
-    const allPanels = [...toggleMap.individuals, ...toggleMap.groupMembers];
-    const panelSettings = { panelColor: '#888888' };
-    // Read initial color from first panel mesh
-    for (const obj of allPanels) {
+  // Case panel color (Solid2.002–029 group members only)
+  if (toggleMap && toggleMap.groupMembers.length > 0) {
+    const panels = toggleMap.groupMembers;
+    const panelSettings = { panelColor: '#c1a085' };
+    // Apply default color immediately
+    const defaultCol = new THREE.Color(panelSettings.panelColor);
+    panels.forEach((obj) => {
       obj.traverse((c) => {
         if (c.isMesh && c.material) {
-          panelSettings.panelColor = '#' + c.material.color.getHexString();
-          return;
+          c.material.color.copy(defaultCol);
+          c.material.needsUpdate = true;
         }
       });
-      break;
-    }
+    });
     mat.addColor(panelSettings, 'panelColor').name('Panel color').onChange(v => {
       const col = new THREE.Color(v);
-      allPanels.forEach((obj) => {
+      panels.forEach((obj) => {
         obj.traverse((c) => {
           if (c.isMesh && c.material) {
             c.material.color.copy(col);
