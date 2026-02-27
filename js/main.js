@@ -2,6 +2,7 @@ import * as THREE from 'three';
 // OrbitControls removed — using mouse-position orbit camera
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
@@ -302,6 +303,21 @@ async function init() {
 
   progressText.textContent = 'loading model...';
   const model = await loadModel('full');
+
+  // --- Studio HDRI environment for realistic reflections ---
+  progressText.textContent = 'loading environment...';
+  const envMap = await new Promise((resolve, reject) => {
+    new RGBELoader().load(
+      'https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/studio_small_09_1k.hdr',
+      (texture) => {
+        texture.mapping = THREE.EquirectangularReflectionMapping;
+        resolve(texture);
+      },
+      undefined,
+      reject,
+    );
+  });
+  scene.environment = envMap;
 
   // Log full model hierarchy for debugging part names
   model.traverse((child) => {
@@ -794,21 +810,21 @@ async function init() {
 
   // SSAO — subtle ambient occlusion for depth in crevices
   const ssaoPass = new SSAOPass(scene, camera, window.innerWidth, window.innerHeight);
-  ssaoPass.kernelRadius = 0.3;
+  ssaoPass.kernelRadius = 0.15;
   ssaoPass.minDistance = 0.0005;
-  ssaoPass.maxDistance = 0.05;
-  ssaoPass.intensity = 1.0;
-  ssaoPass.enabled = false;
+  ssaoPass.maxDistance = 0.03;
+  ssaoPass.intensity = 1.5;
+  ssaoPass.enabled = true;
   composer.addPass(ssaoPass);
 
-  // Bloom — off by default but available
+  // Bloom — subtle glow on specular highlights
   const bloomPass = new UnrealBloomPass(
     new THREE.Vector2(window.innerWidth, window.innerHeight),
-    defaults.postprocessing.bloomStrength,
-    defaults.postprocessing.bloomRadius,
-    defaults.postprocessing.bloomThreshold
+    0.12,  // strength — gentle
+    0.4,   // radius
+    0.9    // threshold — only brightest highlights
   );
-  bloomPass.enabled = defaults.postprocessing.bloom;
+  bloomPass.enabled = true;
   composer.addPass(bloomPass);
 
   // SMAA anti-aliasing
@@ -869,7 +885,7 @@ async function init() {
       background: new C(0xe8eaef),
       wall: new C(0xe0e3e8), wallRoughness: 0.3, wallMetalness: 0.0,
       plank: new C(0xf2f2f8),
-      plankRoughness: 0.08, plankMetalness: 0.0, plankClearcoat: 0.7,
+      plankRoughness: 0.08, plankMetalness: 0.0, plankClearcoat: 0.7, plankClearcoatRoughness: 0.15,
       bracket: new C(0xcccccc), bracketRoughness: 0.15, bracketMetalness: 0.95,
       ambientIntensity: 0.5, ambientColor: new C(0xeef0ff),
       keyIntensity: 1.8, keyColor: new C(0xffffff), keyPos: new V(4, 3, 3),
@@ -939,7 +955,7 @@ async function init() {
       background: new C(0x1a1a1a),
       wall: new C(0x151515), wallRoughness: 0.4, wallMetalness: 0.0,
       plank: new C(0x0e0e0e),
-      plankRoughness: 0.05, plankMetalness: 0.0, plankClearcoat: 0.95,
+      plankRoughness: 0.05, plankMetalness: 0.0, plankClearcoat: 0.95, plankClearcoatRoughness: 0.1,
       bracket: new C(0xc8a050), bracketRoughness: 0.2, bracketMetalness: 0.95,
       ambientIntensity: 0.15, ambientColor: new C(0xffffff),
       keyIntensity: 2.8, keyColor: new C(0xfff0dd), keyPos: new V(4, 5, 1),
@@ -953,7 +969,7 @@ async function init() {
       background: new C(0xd8ddd4),
       wall: new C(0xd0d8cc), wallRoughness: 0.85, wallMetalness: 0.0,
       plank: new C(0xf0efea),
-      plankRoughness: 0.2, plankMetalness: 0.0, plankClearcoat: 0.5,
+      plankRoughness: 0.2, plankMetalness: 0.0, plankClearcoat: 0.5, plankClearcoatRoughness: 0.25,
       bracket: new C(0xcc7744), bracketRoughness: 0.35, bracketMetalness: 0.88,
       ambientIntensity: 0.45, ambientColor: new C(0xf0f5ee),
       keyIntensity: 1.8, keyColor: new C(0xffffff), keyPos: new V(2, 4, 3),
@@ -1005,8 +1021,8 @@ async function init() {
     });
   }
 
-  const PLANK_REPEAT = new THREE.Vector2(2, 1);
-  const WALL_REPEAT = new THREE.Vector2(6, 6);
+  const PLANK_REPEAT = new THREE.Vector2(4, 2);
+  const WALL_REPEAT = new THREE.Vector2(12, 12);
 
   // Build separate texture sets for plank and wall so repeat values don't conflict
   // when the same texture name is used for both surfaces (e.g. concrete_wall_003)
@@ -1055,6 +1071,7 @@ async function init() {
     const wt = wallTextures[ctx.wallTex];
     wallMat.map = wt?.diff || null;
     wallMat.normalMap = wt?.norm || null;
+    wallMat.normalScale.set(0.5, 0.5);
     wallMat.color.copy(ctx.wall);
     wallMat.roughness = ctx.wallRoughness ?? 0.95;
     wallMat.metalness = ctx.wallMetalness ?? 0.0;
@@ -1064,10 +1081,12 @@ async function init() {
     const pt = plankTextures[ctx.plankTex];
     woodMat.map = pt?.diff || null;
     woodMat.normalMap = pt?.norm || null;
+    woodMat.normalScale.set(0.8, 0.8);
     woodMat.color.copy(ctx.plank);
     woodMat.roughness = ctx.plankRoughness;
     woodMat.metalness = ctx.plankMetalness ?? 0.0;
     woodMat.clearcoat = ctx.plankClearcoat ?? 0.15;
+    woodMat.clearcoatRoughness = ctx.plankClearcoatRoughness ?? 0.4;
     woodMat.needsUpdate = true;
 
     bracketMat.color.copy(ctx.bracket);
