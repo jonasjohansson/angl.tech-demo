@@ -1060,6 +1060,13 @@ async function init() {
     bokehPass.renderTargetDepth.setSize(w, h);
   });
 
+  // --- Camera sway (subtle idle drift) ---
+  const swayDefaults = defaults.cameraSway || { enabled: true, azimuthAmount: 0.008, elevationAmount: 0.003, speed: 0.4 };
+  let swayEnabled = swayDefaults.enabled;
+  const swayAzimuth = swayDefaults.azimuthAmount;
+  const swayElevation = swayDefaults.elevationAmount;
+  const swaySpeed = swayDefaults.speed;
+
   // --- GUI ---
   const wipeDirections = {
     'Top → Down': 0, 'Bottom → Up': 1,
@@ -1452,13 +1459,6 @@ async function init() {
     wipeMaterial.uniforms.uResolution.value.set(window.innerWidth, window.innerHeight);
     flarePass.uniforms.uResolution.value.set(window.innerWidth, window.innerHeight);
   });
-
-  // --- Camera sway (subtle idle drift) ---
-  const swayDefaults = defaults.cameraSway || { enabled: true, azimuthAmount: 0.008, elevationAmount: 0.003, speed: 0.4 };
-  let swayEnabled = swayDefaults.enabled;
-  const swayAzimuth = swayDefaults.azimuthAmount;
-  const swayElevation = swayDefaults.elevationAmount;
-  const swaySpeed = swayDefaults.speed;
 
   // --- Fade out loader ---
   overlay.classList.add('loaded');
