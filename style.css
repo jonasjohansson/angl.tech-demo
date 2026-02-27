@@ -155,6 +155,129 @@ body {
   transition: color 0.3s;
 }
 
+/* Hotspot overlay */
+.hotspot-container {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 20;
+}
+
+/* Marker dot */
+.hotspot-marker {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  transform: translate(-50%, -50%);
+  pointer-events: auto;
+  cursor: pointer;
+  z-index: 3;
+}
+
+.hotspot-marker::before {
+  content: '';
+  position: absolute;
+  inset: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+.hotspot-marker::after {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.6);
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.hotspot-marker:hover::after {
+  transform: scale(1.4);
+  border-color: rgba(255, 255, 255, 0.9);
+}
+
+/* Tag card */
+.hotspot-tag {
+  position: absolute;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(-50%) scale(0.95);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+}
+
+.hotspot-tag.visible {
+  opacity: 1;
+  transform: translateY(-50%) scale(1);
+}
+
+.hotspot-tag-line {
+  width: 24px;
+  height: 1px;
+  background: rgba(0, 0, 0, 0.15);
+  flex-shrink: 0;
+}
+
+.hotspot-tag-card {
+  background: #fff;
+  border-radius: 4px;
+  padding: 12px 16px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  white-space: nowrap;
+}
+
+.hotspot-tag-body {
+  display: flex;
+  flex-direction: column;
+}
+
+.hotspot-tag-name {
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  color: #111;
+  letter-spacing: 0.02em;
+}
+
+.hotspot-tag-desc {
+  font-size: 11px;
+  color: #666;
+  letter-spacing: 0.01em;
+  margin-top: 2px;
+}
+
+.hotspot-tag-arrow {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #f5f5f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #333;
+}
+
+.hotspot-tag-arrow svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Flip direction when tag is on the right */
+.hotspot-tag.left {
+  flex-direction: row-reverse;
+}
+
+.hotspot-tag.left .hotspot-tag-card {
+  flex-direction: row-reverse;
+}
+
 @media (max-width: 640px) {
   .viewer-info {
     bottom: 12px;

@@ -315,6 +315,162 @@ async function init() {
     );
   });
 
+  // --- Hotspot labels ---
+  const HOTSPOTS = [
+    { match: 'ANGL-PAR-OSH-001_REV-G', title: 'SIDE PANEL', desc: 'Aluminium enclosure' },
+    { match: 'ANGL-PAR-OSH-002_REV-G', title: 'TOP PANEL', desc: 'CNC ventilation' },
+    { match: 'Motherboard Mini-ATX generic', title: 'MOTHERBOARD', desc: 'ASUS Strix B850-I' },
+    { match: 'RTX 5090', title: 'GPU', desc: 'RTX 5090 Inno3D iChill' },
+    { match: 'SF1000_simplified', title: 'PSU', desc: 'Corsair SF1000' },
+    { match: 'Noctua-200mm', title: 'FAN', desc: 'Noctua 200 mm' },
+    { match: 'Alphacool radiator 200mm', title: 'RADIATOR', desc: 'Alphacool 200 mm' },
+    { match: 'DDR5 module', title: 'MEMORY', desc: 'DDR5 module' },
+    { match: 'SSD NVMe M2 2280 Generic', title: 'STORAGE', desc: 'NVMe M.2 2280 SSD' },
+    { match: 'Power button assembly', title: 'POWER BUTTON', desc: 'Illuminated momentary' },
+    { match: 'Riser_AG-P5-33VV-v.3_MOUNTED', title: 'RISER CABLE', desc: 'PCIe 5.0 x16' },
+  ];
+
+  const hotspotContainer = document.getElementById('hotspot-container');
+
+  // Resolve each hotspot to its 3D object and create persistent DOM
+  const hotspotInstances = []; // { data, object, markerEl, panelEl, open }
+
+  function initHotspots(root) {
+    // Clear old instances
+    hotspotInstances.length = 0;
+    hotspotContainer.innerHTML = '';
+
+    // Log all named objects for debugging hotspot matches
+    const allNames = [];
+    root.traverse((c) => { if (c.name) allNames.push(c.name); });
+    console.log('Hotspot candidates:', allNames);
+
+    const chevronSVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>';
+
+    HOTSPOTS.forEach((hs) => {
+      let target = null;
+      // Exact match first, then includes fallback
+      root.traverse((child) => {
+        if (!target && child.name === hs.match) target = child;
+      });
+      if (!target) {
+        root.traverse((child) => {
+          if (!target && child.name && child.name.includes(hs.match)) target = child;
+        });
+      }
+      if (!target) {
+        console.warn('Hotspot target not found:', hs.match);
+        return;
+      }
+      console.log('Hotspot matched:', hs.match, '->', target.name);
+
+      // Marker dot (always visible)
+      const markerEl = document.createElement('div');
+      markerEl.className = 'hotspot-marker';
+      hotspotContainer.appendChild(markerEl);
+
+      // Tag card (IKEA-style, toggled on click)
+      const tagEl = document.createElement('div');
+      tagEl.className = 'hotspot-tag';
+      tagEl.innerHTML =
+        `<div class="hotspot-tag-line"></div>` +
+        `<div class="hotspot-tag-card">` +
+          `<div class="hotspot-tag-body">` +
+            `<span class="hotspot-tag-name">${hs.title}</span>` +
+            `<span class="hotspot-tag-desc">${hs.desc}</span>` +
+          `</div>` +
+          `<div class="hotspot-tag-arrow">${chevronSVG}</div>` +
+        `</div>`;
+      hotspotContainer.appendChild(tagEl);
+
+      // Click on marker toggles the tag
+      markerEl.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const inst = hotspotInstances.find((h) => h.data === hs);
+        if (inst) {
+          inst.open = !inst.open;
+          inst.tagEl.classList.toggle('visible', inst.open);
+        }
+      });
+
+      hotspotInstances.push({ data: hs, object: target, markerEl, tagEl, open: false });
+    });
+  }
+
+  initHotspots(model);
+
+  // onModelLoaded chaining happens after toggleMap setup below
+
+  function tryShowHotspot(event) {
+    const px = (event.clientX / window.innerWidth) * 2 - 1;
+    const py = -(event.clientY / window.innerHeight) * 2 + 1;
+    const rc = new THREE.Raycaster();
+    rc.setFromCamera(new THREE.Vector2(px, py), camera);
+
+    if (!currentModel) return false;
+    const allMeshes = [];
+    currentModel.traverse((c) => { if (c.isMesh) allMeshes.push(c); });
+    const hits = rc.intersectObjects(allMeshes, false);
+    if (hits.length === 0) return false;
+
+    // Walk up parent chain to find a hotspot match
+    let hitObj = hits[0].object;
+    let matched = null;
+    while (hitObj) {
+      const inst = hotspotInstances.find((h) => h.object === hitObj);
+      if (inst) { matched = inst; break; }
+      hitObj = hitObj.parent;
+    }
+
+    if (!matched) return false;
+
+    // Toggle tag card
+    matched.open = !matched.open;
+    matched.tagEl.classList.toggle('visible', matched.open);
+    return true;
+  }
+
+  function updateHotspotPositions() {
+    const hw = window.innerWidth / 2;
+    const hh = window.innerHeight / 2;
+    const tmpVec = new THREE.Vector3();
+    const tmpBox = new THREE.Box3();
+
+    hotspotInstances.forEach((inst) => {
+      // World center of the part
+      tmpBox.setFromObject(inst.object);
+      tmpBox.getCenter(tmpVec);
+
+      const projected = tmpVec.project(camera);
+      const sx = projected.x * hw + hw;
+      const sy = -projected.y * hh + hh;
+
+      // Behind camera — hide everything
+      if (projected.z > 1) {
+        inst.markerEl.style.opacity = '0';
+        inst.tagEl.classList.remove('visible');
+        return;
+      }
+      inst.markerEl.style.opacity = '';
+
+      // Position marker
+      inst.markerEl.style.left = sx + 'px';
+      inst.markerEl.style.top = sy + 'px';
+
+      // Position tag adjacent to marker
+      const onLeft = sx > window.innerWidth / 2;
+      inst.tagEl.classList.toggle('left', onLeft);
+      if (onLeft) {
+        inst.tagEl.style.left = 'auto';
+        inst.tagEl.style.right = (window.innerWidth - sx + 14) + 'px';
+      } else {
+        inst.tagEl.style.left = (sx + 14) + 'px';
+        inst.tagEl.style.right = 'auto';
+      }
+      inst.tagEl.style.top = sy + 'px';
+    });
+  }
+
   // --- Toggleable parts ---
   // Discover all Solid2-related objects and categorise them:
   //   "Solid2" (exact) and names containing ".001" → individual toggle
@@ -356,6 +512,7 @@ async function init() {
   onModelLoaded = (m) => {
     toggleMap = buildToggleMap(m);
     explodeParts = buildExplodeParts(m);
+    initHotspots(m);
   };
 
   const raycaster = new THREE.Raycaster();
@@ -587,14 +744,16 @@ async function init() {
     }
   }
 
-  // Click: toggle part if hit, otherwise cycle views
+  // Click: hotspot → toggle part → cycle views
   renderer.domElement.addEventListener('click', (e) => {
-    if (tryTogglePart(e)) return; // clicked a toggleable part
+    if (tryShowHotspot(e)) return;   // clicked a hotspot part
+    if (tryTogglePart(e)) return;    // clicked a toggleable part
     viewIndex = (viewIndex + 1) % viewList.length;
     setView(viewList[viewIndex]);
   });
   renderer.domElement.addEventListener('contextmenu', (e) => {
     e.preventDefault();
+    if (tryShowHotspot(e)) return;
     if (tryTogglePart(e)) return;
     viewIndex = (viewIndex - 1 + viewList.length) % viewList.length;
     setView(viewList[viewIndex]);
@@ -612,6 +771,11 @@ async function init() {
       toggleZoom();
     } else if (e.key === 'e' || e.key === 'E') {
       exploded = !exploded;
+      // Show all tags when exploding, hide when collapsing
+      hotspotInstances.forEach((inst) => {
+        inst.open = exploded;
+        inst.tagEl.classList.toggle('visible', exploded);
+      });
     }
   });
 
@@ -937,6 +1101,7 @@ async function init() {
     requestAnimationFrame(animate);
     updateCamera();
     updateExplode();
+    updateHotspotPositions();
 
     const fromIdx = Math.floor(scrollPosition);
     const toIdx = Math.min(fromIdx + 1, contexts.length - 1);
