@@ -733,7 +733,8 @@ async function init() {
 
   // --- View presets ---
   const viewList = ['Front', 'Right', 'Rear', 'Left'];
-  const viewAngles = { Front: 0, Right: -Math.PI / 2, Rear: Math.PI, Left: Math.PI / 2 };
+  // ~60° instead of 90° so the wall stays visible from side views
+  const viewAngles = { Front: 0, Right: -Math.PI / 3, Rear: Math.PI, Left: Math.PI / 3 };
   let viewIndex = 0;
 
   function setView(name) {
@@ -744,16 +745,14 @@ async function init() {
     }
   }
 
-  // Click: hotspot → toggle part → cycle views
+  // Click: toggle part → cycle views (hotspots use marker dot click handlers)
   renderer.domElement.addEventListener('click', (e) => {
-    if (tryShowHotspot(e)) return;   // clicked a hotspot part
-    if (tryTogglePart(e)) return;    // clicked a toggleable part
+    if (tryTogglePart(e)) return;
     viewIndex = (viewIndex + 1) % viewList.length;
     setView(viewList[viewIndex]);
   });
   renderer.domElement.addEventListener('contextmenu', (e) => {
     e.preventDefault();
-    if (tryShowHotspot(e)) return;
     if (tryTogglePart(e)) return;
     viewIndex = (viewIndex - 1 + viewList.length) % viewList.length;
     setView(viewList[viewIndex]);
@@ -852,6 +851,7 @@ async function init() {
   const contexts = [
     { // 1 — Light oak shelf, warm white plaster wall, matte black brackets
       name: 'Scandinavian',
+      plankTex: 'oak_veneer_01', wallTex: 'white_plaster_02',
       background: new C(0xf0ebe3),
       wall: new C(0xf0ebe3), wallRoughness: 0.95, wallMetalness: 0.0,
       plank: new C(0xc8a87c),
@@ -865,6 +865,7 @@ async function init() {
     },
     { // 2 — Polished white marble shelf, light grey wall, chrome brackets
       name: 'Marble',
+      plankTex: 'marble_01', wallTex: 'grey_plaster_03',
       background: new C(0xe8eaef),
       wall: new C(0xe0e3e8), wallRoughness: 0.3, wallMetalness: 0.0,
       plank: new C(0xf2f2f8),
@@ -878,6 +879,7 @@ async function init() {
     },
     { // 3 — Light concrete shelf, pale grey wall, brushed nickel brackets
       name: 'Minimal',
+      plankTex: 'concrete_wall_003', wallTex: 'concrete_wall_003',
       background: new C(0xd8d8d8),
       wall: new C(0xd0d0d0), wallRoughness: 0.92, wallMetalness: 0.0,
       plank: new C(0xc0c0c0),
@@ -891,6 +893,7 @@ async function init() {
     },
     { // 4 — Rich walnut shelf, warm linen wall, brushed brass brackets
       name: 'Walnut',
+      plankTex: 'walnut_veneer', wallTex: 'white_plaster_02',
       background: new C(0xe8e0d4),
       wall: new C(0xe4dcd0), wallRoughness: 0.88, wallMetalness: 0.0,
       plank: new C(0x5a3a22),
@@ -904,6 +907,7 @@ async function init() {
     },
     { // 5 — Brushed stainless shelf, soft white wall, matching steel brackets
       name: 'Steel',
+      plankTex: 'metal_plate', wallTex: 'grey_plaster_03',
       background: new C(0xe8e8ec),
       wall: new C(0xe0e0e5), wallRoughness: 0.6, wallMetalness: 0.0,
       plank: new C(0xb0b0b8),
@@ -917,6 +921,7 @@ async function init() {
     },
     { // 6 — Warm terracotta shelf, cream stucco wall, dark bronze brackets
       name: 'Terracotta',
+      plankTex: 'concrete_wall_003', wallTex: 'white_plaster_02',
       background: new C(0xece0d0),
       wall: new C(0xe8dcc8), wallRoughness: 0.9, wallMetalness: 0.0,
       plank: new C(0xc08060),
@@ -930,6 +935,7 @@ async function init() {
     },
     { // 7 — Glossy black lacquer shelf, dark charcoal wall, gold brackets
       name: 'Noir',
+      plankTex: 'dark_wood', wallTex: 'grey_plaster_03',
       background: new C(0x1a1a1a),
       wall: new C(0x151515), wallRoughness: 0.4, wallMetalness: 0.0,
       plank: new C(0x0e0e0e),
@@ -943,6 +949,7 @@ async function init() {
     },
     { // 8 — White ceramic shelf, soft sage wall, copper brackets
       name: 'Sage',
+      plankTex: 'marble_01', wallTex: 'white_plaster_02',
       background: new C(0xd8ddd4),
       wall: new C(0xd0d8cc), wallRoughness: 0.85, wallMetalness: 0.0,
       plank: new C(0xf0efea),
@@ -956,6 +963,7 @@ async function init() {
     },
     { // 9 — Light ash wood shelf, soft blush wall, rose gold brackets
       name: 'Blush',
+      plankTex: 'oak_veneer_01', wallTex: 'white_plaster_02',
       background: new C(0xf0e0dd),
       wall: new C(0xecdad6), wallRoughness: 0.85, wallMetalness: 0.0,
       plank: new C(0xe0cbb5),
@@ -969,6 +977,7 @@ async function init() {
     },
     { // 10 — Smoked oak shelf, warm greige wall, oxidized brass brackets
       name: 'Gallery',
+      plankTex: 'dark_wood', wallTex: 'grey_plaster_03',
       background: new C(0xe0dcd5),
       wall: new C(0xdad6ce), wallRoughness: 0.8, wallMetalness: 0.0,
       plank: new C(0x7a6a55),
@@ -982,19 +991,85 @@ async function init() {
     },
   ];
 
+  // --- Preload PBR textures from Polyhaven ---
+  const textureNames = [...new Set(
+    contexts.flatMap((ctx) => [ctx.plankTex, ctx.wallTex])
+  )];
+
+  progressText.textContent = 'loading textures...';
+
+  const texLoader = new THREE.TextureLoader();
+  function loadTex(url) {
+    return new Promise((resolve, reject) => {
+      texLoader.load(url, resolve, undefined, reject);
+    });
+  }
+
+  const PLANK_REPEAT = new THREE.Vector2(2, 1);
+  const WALL_REPEAT = new THREE.Vector2(6, 6);
+
+  // Build separate texture sets for plank and wall so repeat values don't conflict
+  // when the same texture name is used for both surfaces (e.g. concrete_wall_003)
+  const plankTextures = {}; // { name: { diff, norm } }
+  const wallTextures = {};  // { name: { diff, norm } }
+  const rawCache = {};      // shared download cache
+
+  let texLoaded = 0;
+  await Promise.all(textureNames.map(async (name) => {
+    const base = `https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/${name}/${name}`;
+    const [diff, norm] = await Promise.all([
+      loadTex(`${base}_diff_1k.jpg`),
+      loadTex(`${base}_nor_gl_1k.jpg`),
+    ]);
+    rawCache[name] = { diff, norm };
+    texLoaded++;
+    progressText.textContent = `loading textures... ${texLoaded}/${textureNames.length}`;
+  }));
+
+  function prepareTexSet(raw, repeat) {
+    function configure(tex, isSRGB) {
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      tex.colorSpace = isSRGB ? THREE.SRGBColorSpace : THREE.LinearSRGBColorSpace;
+      tex.repeat.copy(repeat);
+      return tex;
+    }
+    return {
+      diff: configure(raw.diff.clone(), true),
+      norm: configure(raw.norm.clone(), false),
+    };
+  }
+
+  textureNames.forEach((name) => {
+    plankTextures[name] = prepareTexSet(rawCache[name], PLANK_REPEAT);
+    wallTextures[name] = prepareTexSet(rawCache[name], WALL_REPEAT);
+  });
+
   let contextIndex = 0;
   let targetIndex = 0;
   let wipeProgress = 0; // 0 = all old, 1 = all new
 
   function applyContextNow(ctx) {
     scene.background.copy(ctx.background);
+
+    // Wall textures
+    const wt = wallTextures[ctx.wallTex];
+    wallMat.map = wt?.diff || null;
+    wallMat.normalMap = wt?.norm || null;
     wallMat.color.copy(ctx.wall);
     wallMat.roughness = ctx.wallRoughness ?? 0.95;
     wallMat.metalness = ctx.wallMetalness ?? 0.0;
+    wallMat.needsUpdate = true;
+
+    // Plank textures
+    const pt = plankTextures[ctx.plankTex];
+    woodMat.map = pt?.diff || null;
+    woodMat.normalMap = pt?.norm || null;
     woodMat.color.copy(ctx.plank);
     woodMat.roughness = ctx.plankRoughness;
     woodMat.metalness = ctx.plankMetalness ?? 0.0;
     woodMat.clearcoat = ctx.plankClearcoat ?? 0.15;
+    woodMat.needsUpdate = true;
+
     bracketMat.color.copy(ctx.bracket);
     bracketMat.roughness = ctx.bracketRoughness ?? 0.4;
     bracketMat.metalness = ctx.bracketMetalness ?? 0.85;
