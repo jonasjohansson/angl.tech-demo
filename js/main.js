@@ -814,7 +814,7 @@ async function init() {
   ssaoPass.minDistance = 0.0005;
   ssaoPass.maxDistance = 0.03;
   ssaoPass.intensity = 1.5;
-  ssaoPass.enabled = true;
+  ssaoPass.enabled = false;
   composer.addPass(ssaoPass);
 
   // Bloom — subtle glow on specular highlights
