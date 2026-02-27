@@ -47,7 +47,7 @@ export const defaults = {
     vignette: true,
     vignetteAmount: 0.35,
     grain: true,
-    grainAmount: 0.06,
+    grainAmount: 0.015,
     chromaticAberration: true,
     chromaticAberrationAmount: 0.0015,
     colorGrading: true,
