@@ -68,7 +68,7 @@ export const defaults = {
     mapSize: 2048,
   },
   cameraSway: {
-    enabled: true,
+    enabled: false,
     azimuthAmount: 0.008,
     elevationAmount: 0.003,
     speed: 0.4,
