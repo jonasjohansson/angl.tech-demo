@@ -45,15 +45,15 @@ export const defaults = {
     dofMaxBlur: 0.004,
     // Film effects (ScandinavianFilmShader)
     vignette: true,
-    vignetteAmount: 0.35,
+    vignetteAmount: 0.15,
     grain: true,
     grainAmount: 0.015,
     chromaticAberration: true,
-    chromaticAberrationAmount: 0.0015,
+    chromaticAberrationAmount: 0.0008,
     colorGrading: true,
-    midSaturation: 0.85,
-    shadowWarmth: 0.12,
-    highlightWarmth: 0.08,
+    midSaturation: 0.95,
+    shadowWarmth: 0.04,
+    highlightWarmth: 0.03,
     // Lens distortion
     lensDistortion: true,
     lensDistortionAmount: 0.03,
@@ -65,7 +65,7 @@ export const defaults = {
   },
   shadows: {
     enabled: true,
-    mapSize: 2048,
+    mapSize: 4096,
   },
   cameraSway: {
     enabled: false,
