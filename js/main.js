@@ -845,6 +845,8 @@ async function init() {
       uMidSaturation: { value: defaults.postprocessing.midSaturation },
       uShadowWarmth: { value: defaults.postprocessing.shadowWarmth },
       uHighlightWarmth: { value: defaults.postprocessing.highlightWarmth },
+      uLensDistortion: { value: 1 },
+      uLensDistortionAmount: { value: defaults.postprocessing.lensDistortionAmount ?? 0.03 },
     },
     vertexShader: /* glsl */`
       varying vec2 vUv;
@@ -866,6 +868,8 @@ async function init() {
       uniform float uMidSaturation;
       uniform float uShadowWarmth;
       uniform float uHighlightWarmth;
+      uniform float uLensDistortion;
+      uniform float uLensDistortionAmount;
       varying vec2 vUv;
 
       // Hash-based noise
@@ -877,6 +881,13 @@ async function init() {
 
       void main() {
         vec2 uv = vUv;
+
+        // --- Barrel Lens Distortion ---
+        if (uLensDistortion > 0.5) {
+          vec2 centered = uv - 0.5;
+          float r2 = dot(centered, centered);
+          uv = 0.5 + centered * (1.0 + uLensDistortionAmount * r2);
+        }
 
         // --- Chromatic Aberration ---
         vec3 col;
@@ -932,13 +943,13 @@ async function init() {
   const composer = new EffectComposer(renderer, renderTarget);
   composer.addPass(new RenderPass(scene, camera));
 
-  // SSAO — subtle ambient occlusion for depth in crevices
+  // SSAO — subtle ambient occlusion for shelf/case contact
   const ssaoPass = new SSAOPass(scene, camera, window.innerWidth, window.innerHeight);
-  ssaoPass.kernelRadius = 0.15;
-  ssaoPass.minDistance = 0.0005;
-  ssaoPass.maxDistance = 0.03;
-  ssaoPass.intensity = 1.5;
-  ssaoPass.enabled = false;
+  ssaoPass.kernelRadius = 0.12;
+  ssaoPass.minDistance = 0.0003;
+  ssaoPass.maxDistance = 0.025;
+  ssaoPass.intensity = 1.2;
+  ssaoPass.enabled = true;
   composer.addPass(ssaoPass);
 
   // Depth of Field — BokehPass
@@ -967,6 +978,60 @@ async function init() {
   const filmPass = new ShaderPass(ScandinavianFilmShader);
   filmPass.enabled = true;
   composer.addPass(filmPass);
+
+  // Anamorphic lens flare — horizontal streak on bright specular hits
+  const AnamorphicFlareShader = {
+    uniforms: {
+      tDiffuse: { value: null },
+      uEnabled: { value: 1 },
+      uThreshold: { value: defaults.postprocessing.flareThreshold ?? 0.85 },
+      uStrength: { value: defaults.postprocessing.flareStrength ?? 0.15 },
+      uSteps: { value: defaults.postprocessing.flareSteps ?? 12 },
+      uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
+    },
+    vertexShader: /* glsl */`
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: /* glsl */`
+      uniform sampler2D tDiffuse;
+      uniform float uEnabled;
+      uniform float uThreshold;
+      uniform float uStrength;
+      uniform float uSteps;
+      uniform vec2 uResolution;
+      varying vec2 vUv;
+      void main() {
+        vec4 col = texture2D(tDiffuse, vUv);
+        if (uEnabled < 0.5) { gl_FragColor = col; return; }
+        // Horizontal blur of bright pixels only
+        float texelW = 1.0 / uResolution.x;
+        vec3 streak = vec3(0.0);
+        float total = 0.0;
+        int steps = int(uSteps);
+        for (int i = -24; i <= 24; i++) {
+          if (i < -steps || i > steps) continue;
+          float w = 1.0 - abs(float(i)) / uSteps;
+          w *= w; // quadratic falloff for anamorphic shape
+          vec3 s = texture2D(tDiffuse, vUv + vec2(float(i) * texelW * 3.0, 0.0)).rgb;
+          float luma = dot(s, vec3(0.2126, 0.7152, 0.0722));
+          float bright = max(0.0, luma - uThreshold);
+          streak += s * bright * w;
+          total += w;
+        }
+        streak /= total;
+        // Tint streak slightly warm/blue for anamorphic look
+        streak *= vec3(0.8, 0.85, 1.2);
+        gl_FragColor = vec4(col.rgb + streak * uStrength, col.a);
+      }
+    `,
+  };
+  const flarePass = new ShaderPass(AnamorphicFlareShader);
+  flarePass.enabled = true;
+  composer.addPass(flarePass);
 
   // SMAA anti-aliasing
   const smaaPass = new SMAAPass(window.innerWidth, window.innerHeight);
@@ -1005,11 +1070,15 @@ async function init() {
   createGUI({
     renderer, scene, camera, model,
     lights: { ambient, keyLight, fillLight, rimLight, bounceLight },
-    groundPlane, grid, bloomPass, smaaPass, ssaoPass, bokehPass, filmPass,
+    groundPlane, grid, bloomPass, smaaPass, ssaoPass, bokehPass, filmPass, flarePass,
     loadModel, setView, switchCamera,
     viewNames: viewList,
     wipeDirections,
     setWipeDirection: (v) => { wipeDirection = v; },
+    sway: {
+      get enabled() { return swayEnabled; },
+      set enabled(v) { swayEnabled = v; },
+    },
   });
 
   // --- Aesthetic contexts (scroll to switch) ---
@@ -1027,7 +1096,7 @@ async function init() {
       keyIntensity: 2.2, keyColor: new C(0xfff5e6), keyPos: new V(3, 4, 2),
       fillIntensity: 0.8, fillColor: new C(0x8899bb),
       rimIntensity: 1.2, rimColor: new C(0xffddaa),
-      exposure: 1.1,
+      exposure: 1.1, envRotation: 0,
     },
     { // 2 — Polished white marble shelf, light grey wall, chrome brackets
       name: 'Marble',
@@ -1041,7 +1110,7 @@ async function init() {
       keyIntensity: 1.8, keyColor: new C(0xffffff), keyPos: new V(4, 3, 3),
       fillIntensity: 0.7, fillColor: new C(0x99aacc),
       rimIntensity: 0.8, rimColor: new C(0xddeeff),
-      exposure: 1.05,
+      exposure: 1.05, envRotation: Math.PI * 0.3,
     },
     { // 3 — Light concrete shelf, pale grey wall, brushed nickel brackets
       name: 'Minimal',
@@ -1055,7 +1124,7 @@ async function init() {
       keyIntensity: 1.8, keyColor: new C(0xffffff), keyPos: new V(2, 5, 3),
       fillIntensity: 0.9, fillColor: new C(0xbbccdd),
       rimIntensity: 0.6, rimColor: new C(0xddddee),
-      exposure: 1.1,
+      exposure: 1.1, envRotation: Math.PI * 0.6,
     },
     { // 4 — Rich walnut shelf, warm linen wall, brushed brass brackets
       name: 'Walnut',
@@ -1069,7 +1138,7 @@ async function init() {
       keyIntensity: 2.0, keyColor: new C(0xfff0dd), keyPos: new V(3, 4, 2),
       fillIntensity: 0.6, fillColor: new C(0xbbaa88),
       rimIntensity: 1.0, rimColor: new C(0xeeddbb),
-      exposure: 1.05,
+      exposure: 1.05, envRotation: Math.PI * 0.9,
     },
     { // 5 — Brushed stainless shelf, soft white wall, matching steel brackets
       name: 'Steel',
@@ -1083,7 +1152,7 @@ async function init() {
       keyIntensity: 2.0, keyColor: new C(0xffffff), keyPos: new V(3, 5, 1),
       fillIntensity: 0.6, fillColor: new C(0x99aabb),
       rimIntensity: 1.2, rimColor: new C(0xccddee),
-      exposure: 1.15,
+      exposure: 1.15, envRotation: Math.PI * 1.2,
     },
     { // 6 — Warm terracotta shelf, cream stucco wall, dark bronze brackets
       name: 'Terracotta',
@@ -1097,7 +1166,7 @@ async function init() {
       keyIntensity: 2.0, keyColor: new C(0xffeecc), keyPos: new V(4, 4, 2),
       fillIntensity: 0.6, fillColor: new C(0xccaa88),
       rimIntensity: 0.8, rimColor: new C(0xffddbb),
-      exposure: 1.05,
+      exposure: 1.05, envRotation: Math.PI * 1.5,
     },
     { // 7 — Glossy black lacquer shelf, dark charcoal wall, gold brackets
       name: 'Noir',
@@ -1111,7 +1180,7 @@ async function init() {
       keyIntensity: 2.8, keyColor: new C(0xfff0dd), keyPos: new V(4, 5, 1),
       fillIntensity: 0.2, fillColor: new C(0x333333),
       rimIntensity: 2.0, rimColor: new C(0xddaa44),
-      exposure: 1.3,
+      exposure: 1.3, envRotation: Math.PI * 0.5,
     },
     { // 8 — White ceramic shelf, soft sage wall, copper brackets
       name: 'Sage',
@@ -1125,7 +1194,7 @@ async function init() {
       keyIntensity: 1.8, keyColor: new C(0xffffff), keyPos: new V(2, 4, 3),
       fillIntensity: 0.7, fillColor: new C(0x99aa88),
       rimIntensity: 0.9, rimColor: new C(0xffcc99),
-      exposure: 1.1,
+      exposure: 1.1, envRotation: Math.PI * 1.8,
     },
     { // 9 — Light ash wood shelf, soft blush wall, rose gold brackets
       name: 'Blush',
@@ -1139,7 +1208,7 @@ async function init() {
       keyIntensity: 1.8, keyColor: new C(0xffeedd), keyPos: new V(3, 4, 2),
       fillIntensity: 0.7, fillColor: new C(0xddaaaa),
       rimIntensity: 0.9, rimColor: new C(0xffccbb),
-      exposure: 1.1,
+      exposure: 1.1, envRotation: Math.PI * 0.7,
     },
     { // 10 — Smoked oak shelf, warm greige wall, oxidized brass brackets
       name: 'Gallery',
@@ -1153,7 +1222,7 @@ async function init() {
       keyIntensity: 1.8, keyColor: new C(0xfff8ee), keyPos: new V(3, 4, 2),
       fillIntensity: 0.6, fillColor: new C(0xbbaa88),
       rimIntensity: 0.8, rimColor: new C(0xddccaa),
-      exposure: 1.05,
+      exposure: 1.05, envRotation: Math.PI * 1.1,
     },
   ];
 
@@ -1252,6 +1321,10 @@ async function init() {
     rimLight.intensity = ctx.rimIntensity;
     rimLight.color.copy(ctx.rimColor);
     renderer.toneMappingExposure = ctx.exposure;
+    // Rotate HDRI environment per context for unique reflections
+    if (ctx.envRotation !== undefined) {
+      scene.environmentRotation = new THREE.Euler(0, ctx.envRotation, 0);
+    }
   }
 
   // --- Curtain wipe setup ---
@@ -1271,6 +1344,9 @@ async function init() {
       tB: { value: null },
       progress: { value: 0 },
       direction: { value: 0 },
+      uMotionBlur: { value: 1 },
+      uBlurStrength: { value: 0.015 },
+      uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
     },
     vertexShader: `
       varying vec2 vUv;
@@ -1284,19 +1360,46 @@ async function init() {
       uniform sampler2D tB;
       uniform float progress;
       uniform int direction;
+      uniform float uMotionBlur;
+      uniform float uBlurStrength;
+      uniform vec2 uResolution;
       varying vec2 vUv;
+
+      // Directional blur along wipe edge
+      vec4 blurSample(sampler2D tex, vec2 uv, vec2 blurDir, float strength) {
+        vec4 col = vec4(0.0);
+        float total = 0.0;
+        for (int i = -4; i <= 4; i++) {
+          float w = 1.0 - abs(float(i)) / 4.5;
+          col += texture2D(tex, uv + blurDir * float(i) * strength) * w;
+          total += w;
+        }
+        return col / total;
+      }
+
       void main() {
         float t;
-        if (direction == 0)      t = 1.0 - vUv.y;                          // top → down
-        else if (direction == 1) t = vUv.y;                                 // bottom → up
-        else if (direction == 2) t = vUv.x;                                 // left → right
-        else if (direction == 3) t = 1.0 - vUv.x;                          // right → left
-        else if (direction == 4) t = (vUv.x + 1.0 - vUv.y) / 2.0;         // diagonal 45° TL → BR
-        else if (direction == 5) t = (1.0 - vUv.x + 1.0 - vUv.y) / 2.0;   // diagonal 45° TR → BL
-        else if (direction == 6) t = (vUv.x * 0.5 + (1.0 - vUv.y)) / 1.5; // iso: steep from TR corner
-        else                     t = ((1.0 - vUv.x) * 0.5 + vUv.y) / 1.5; // iso reverse: from BL corner
+        vec2 blurDir;
+        if (direction == 0)      { t = 1.0 - vUv.y;                          blurDir = vec2(0.0, 1.0); }
+        else if (direction == 1) { t = vUv.y;                                 blurDir = vec2(0.0, 1.0); }
+        else if (direction == 2) { t = vUv.x;                                 blurDir = vec2(1.0, 0.0); }
+        else if (direction == 3) { t = 1.0 - vUv.x;                          blurDir = vec2(1.0, 0.0); }
+        else if (direction == 4) { t = (vUv.x + 1.0 - vUv.y) / 2.0;         blurDir = normalize(vec2(1.0, -1.0)); }
+        else if (direction == 5) { t = (1.0 - vUv.x + 1.0 - vUv.y) / 2.0;   blurDir = normalize(vec2(-1.0, -1.0)); }
+        else if (direction == 6) { t = (vUv.x * 0.5 + (1.0 - vUv.y)) / 1.5; blurDir = normalize(vec2(0.5, -1.0)); }
+        else                     { t = ((1.0 - vUv.x) * 0.5 + vUv.y) / 1.5; blurDir = normalize(vec2(-0.5, 1.0)); }
+
         float mask = step(t, progress);
-        gl_FragColor = mix(texture2D(tA, vUv), texture2D(tB, vUv), mask);
+
+        // Motion blur strength peaks at the wipe edge
+        float edgeDist = abs(t - progress);
+        float blurMask = (1.0 - smoothstep(0.0, 0.15, edgeDist)) * uMotionBlur;
+        float strength = blurMask * uBlurStrength;
+
+        vec4 colA = strength > 0.001 ? blurSample(tA, vUv, blurDir, strength) : texture2D(tA, vUv);
+        vec4 colB = strength > 0.001 ? blurSample(tB, vUv, blurDir, strength) : texture2D(tB, vUv);
+
+        gl_FragColor = mix(colA, colB, mask);
       }
     `,
     depthTest: false,
@@ -1346,7 +1449,16 @@ async function init() {
   window.addEventListener('resize', () => {
     rtA.setSize(window.innerWidth, window.innerHeight);
     rtB.setSize(window.innerWidth, window.innerHeight);
+    wipeMaterial.uniforms.uResolution.value.set(window.innerWidth, window.innerHeight);
+    flarePass.uniforms.uResolution.value.set(window.innerWidth, window.innerHeight);
   });
+
+  // --- Camera sway (subtle idle drift) ---
+  const swayDefaults = defaults.cameraSway || { enabled: true, azimuthAmount: 0.008, elevationAmount: 0.003, speed: 0.4 };
+  let swayEnabled = swayDefaults.enabled;
+  const swayAzimuth = swayDefaults.azimuthAmount;
+  const swayElevation = swayDefaults.elevationAmount;
+  const swaySpeed = swayDefaults.speed;
 
   // --- Fade out loader ---
   overlay.classList.add('loaded');
@@ -1358,7 +1470,16 @@ async function init() {
     updateCamera();
     updateExplode();
     updateHotspotPositions();
-    filmPass.uniforms.uTime.value = performance.now() * 0.001;
+    const now = performance.now() * 0.001;
+    filmPass.uniforms.uTime.value = now;
+
+    // Idle camera sway — gentle handheld feel
+    if (swayEnabled) {
+      const azDrift = Math.sin(now * swaySpeed) * swayAzimuth;
+      const elDrift = Math.sin(now * swaySpeed * 0.7 + 1.0) * swayElevation;
+      camera.position.x += azDrift;
+      camera.position.y += elDrift;
+    }
 
     const fromIdx = Math.floor(scrollPosition);
     const toIdx = Math.min(fromIdx + 1, contexts.length - 1);

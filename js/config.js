@@ -54,10 +54,24 @@ export const defaults = {
     midSaturation: 0.85,
     shadowWarmth: 0.12,
     highlightWarmth: 0.08,
+    // Lens distortion
+    lensDistortion: true,
+    lensDistortionAmount: 0.03,
+    // Anamorphic lens flare
+    anamorphicFlare: true,
+    flareThreshold: 0.85,
+    flareStrength: 0.15,
+    flareSteps: 12,
   },
   shadows: {
     enabled: true,
     mapSize: 2048,
+  },
+  cameraSway: {
+    enabled: true,
+    azimuthAmount: 0.008,
+    elevationAmount: 0.003,
+    speed: 0.4,
   },
   ground: {
     visible: true,

@@ -30,7 +30,7 @@ function updateMaterials(model, params) {
 }
 
 export function createGUI(ctx) {
-  const { renderer, scene, camera, model, lights, groundPlane, grid, bloomPass, smaaPass, ssaoPass, bokehPass, filmPass, loadModel, setView, switchCamera, viewNames, wipeDirections, setWipeDirection } = ctx;
+  const { renderer, scene, camera, model, lights, groundPlane, grid, bloomPass, smaaPass, ssaoPass, bokehPass, filmPass, flarePass, loadModel, setView, switchCamera, viewNames, wipeDirections, setWipeDirection, sway } = ctx;
 
   let currentModel = model;
   const gui = new GUI({ title: 'ANGL Viewer' });
@@ -77,6 +77,15 @@ export function createGUI(ctx) {
     midSaturation: filmPass.uniforms.uMidSaturation.value,
     shadowWarmth: filmPass.uniforms.uShadowWarmth.value,
     highlightWarmth: filmPass.uniforms.uHighlightWarmth.value,
+    // Lens distortion
+    lensDistortion: filmPass.uniforms.uLensDistortion.value > 0.5,
+    lensDistortionAmount: filmPass.uniforms.uLensDistortionAmount.value,
+    // Anamorphic flare
+    anamorphicFlare: flarePass.uniforms.uEnabled.value > 0.5,
+    flareThreshold: flarePass.uniforms.uThreshold.value,
+    flareStrength: flarePass.uniforms.uStrength.value,
+    // Camera sway
+    cameraSway: sway.enabled,
   };
 
   // --- Display ---
@@ -154,6 +163,8 @@ export function createGUI(ctx) {
   film.add(settings, 'grainAmount', 0, 0.2, 0.005).name('Grain amount').onChange(v => { filmPass.uniforms.uGrainAmount.value = v; });
   film.add(settings, 'chromaticAberration').name('Chromatic aberration').onChange(v => { filmPass.uniforms.uCA.value = v ? 1 : 0; });
   film.add(settings, 'chromaticAberrationAmount', 0, 0.01, 0.0001).name('CA amount').onChange(v => { filmPass.uniforms.uCAAmount.value = v; });
+  film.add(settings, 'lensDistortion').name('Lens distortion').onChange(v => { filmPass.uniforms.uLensDistortion.value = v ? 1 : 0; });
+  film.add(settings, 'lensDistortionAmount', 0, 0.15, 0.005).name('Distortion amount').onChange(v => { filmPass.uniforms.uLensDistortionAmount.value = v; });
   film.close();
 
   // --- Color Grading ---
@@ -163,6 +174,16 @@ export function createGUI(ctx) {
   grading.add(settings, 'shadowWarmth', 0, 0.5, 0.01).name('Shadow warmth').onChange(v => { filmPass.uniforms.uShadowWarmth.value = v; });
   grading.add(settings, 'highlightWarmth', 0, 0.5, 0.01).name('Highlight warmth').onChange(v => { filmPass.uniforms.uHighlightWarmth.value = v; });
   grading.close();
+
+  // --- Anamorphic Flare ---
+  const flare = gui.addFolder('Anamorphic Flare');
+  flare.add(settings, 'anamorphicFlare').name('Enable').onChange(v => { flarePass.uniforms.uEnabled.value = v ? 1 : 0; });
+  flare.add(settings, 'flareThreshold', 0.5, 1.0, 0.01).name('Threshold').onChange(v => { flarePass.uniforms.uThreshold.value = v; });
+  flare.add(settings, 'flareStrength', 0, 0.5, 0.01).name('Strength').onChange(v => { flarePass.uniforms.uStrength.value = v; });
+  flare.close();
+
+  // --- Camera Sway ---
+  post.add(settings, 'cameraSway').name('Camera sway').onChange(v => { sway.enabled = v; });
 
   // --- Transitions ---
   if (wipeDirections && setWipeDirection) {
@@ -195,6 +216,7 @@ export function createGUI(ctx) {
   dofFolder.close();
   film.close();
   grading.close();
+  flare.close();
   cam.close();
 
   return gui;
