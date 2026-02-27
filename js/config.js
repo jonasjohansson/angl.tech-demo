@@ -38,6 +38,26 @@ export const defaults = {
     toneMapping: 'ACESFilmic',
     exposure: 1.1,
     smaa: true,
+    // Depth of Field
+    dof: true,
+    dofFocus: 2.5,
+    dofAperture: 0.002,
+    dofMaxBlur: 0.004,
+    // Film effects (ScandinavianFilmShader)
+    vignette: true,
+    vignetteAmount: 0.35,
+    grain: true,
+    grainAmount: 0.06,
+    chromaticAberration: true,
+    chromaticAberrationAmount: 0.0015,
+    colorGrading: true,
+    midSaturation: 0.85,
+    shadowWarmth: 0.12,
+    highlightWarmth: 0.08,
+  },
+  shadows: {
+    enabled: true,
+    mapSize: 2048,
   },
   ground: {
     visible: true,

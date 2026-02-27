@@ -30,7 +30,7 @@ function updateMaterials(model, params) {
 }
 
 export function createGUI(ctx) {
-  const { renderer, scene, camera, model, lights, groundPlane, grid, bloomPass, smaaPass, ssaoPass, loadModel, setView, switchCamera, viewNames, wipeDirections, setWipeDirection } = ctx;
+  const { renderer, scene, camera, model, lights, groundPlane, grid, bloomPass, smaaPass, ssaoPass, bokehPass, filmPass, loadModel, setView, switchCamera, viewNames, wipeDirections, setWipeDirection } = ctx;
 
   let currentModel = model;
   const gui = new GUI({ title: 'ANGL Viewer' });
@@ -58,6 +58,25 @@ export function createGUI(ctx) {
     ssao: ssaoPass.enabled,
     ssaoIntensity: ssaoPass.intensity,
     ssaoRadius: ssaoPass.kernelRadius,
+    // DoF
+    dof: bokehPass.enabled,
+    dofFocus: bokehPass.uniforms.focus.value,
+    dofAperture: bokehPass.uniforms.aperture.value,
+    dofMaxBlur: bokehPass.uniforms.maxblur.value,
+    // Contact shadows
+    contactShadows: renderer.shadowMap.enabled,
+    // Film effects
+    vignette: filmPass.uniforms.uVignette.value > 0.5,
+    vignetteAmount: filmPass.uniforms.uVignetteAmount.value,
+    grain: filmPass.uniforms.uGrain.value > 0.5,
+    grainAmount: filmPass.uniforms.uGrainAmount.value,
+    chromaticAberration: filmPass.uniforms.uCA.value > 0.5,
+    chromaticAberrationAmount: filmPass.uniforms.uCAAmount.value,
+    // Color grading
+    colorGrading: filmPass.uniforms.uColorGrading.value > 0.5,
+    midSaturation: filmPass.uniforms.uMidSaturation.value,
+    shadowWarmth: filmPass.uniforms.uShadowWarmth.value,
+    highlightWarmth: filmPass.uniforms.uHighlightWarmth.value,
   };
 
   // --- Display ---
@@ -112,6 +131,39 @@ export function createGUI(ctx) {
   post.add(settings, 'bloomThreshold', 0, 1.5, 0.01).onChange(v => { bloomPass.threshold = v; });
   post.add(settings, 'smaa').name('SMAA').onChange(v => { smaaPass.enabled = v; });
 
+  // --- Depth of Field ---
+  const dofFolder = gui.addFolder('Depth of Field');
+  dofFolder.add(settings, 'dof').name('Enable').onChange(v => { bokehPass.enabled = v; });
+  dofFolder.add(settings, 'dofFocus', 0.1, 10, 0.1).name('Focus distance').onChange(v => { bokehPass.uniforms.focus.value = v; });
+  dofFolder.add(settings, 'dofAperture', 0, 0.01, 0.0001).name('Aperture').onChange(v => { bokehPass.uniforms.aperture.value = v; });
+  dofFolder.add(settings, 'dofMaxBlur', 0, 0.02, 0.0005).name('Max blur').onChange(v => { bokehPass.uniforms.maxblur.value = v; });
+  dofFolder.close();
+
+  // --- Contact Shadows ---
+  post.add(settings, 'contactShadows').name('Contact shadows').onChange(v => {
+    renderer.shadowMap.enabled = v;
+    lights.keyLight.castShadow = v;
+    renderer.shadowMap.needsUpdate = true;
+  });
+
+  // --- Film Effects ---
+  const film = gui.addFolder('Film');
+  film.add(settings, 'vignette').name('Vignette').onChange(v => { filmPass.uniforms.uVignette.value = v ? 1 : 0; });
+  film.add(settings, 'vignetteAmount', 0, 1, 0.01).name('Vignette amount').onChange(v => { filmPass.uniforms.uVignetteAmount.value = v; });
+  film.add(settings, 'grain').name('Film grain').onChange(v => { filmPass.uniforms.uGrain.value = v ? 1 : 0; });
+  film.add(settings, 'grainAmount', 0, 0.2, 0.005).name('Grain amount').onChange(v => { filmPass.uniforms.uGrainAmount.value = v; });
+  film.add(settings, 'chromaticAberration').name('Chromatic aberration').onChange(v => { filmPass.uniforms.uCA.value = v ? 1 : 0; });
+  film.add(settings, 'chromaticAberrationAmount', 0, 0.01, 0.0001).name('CA amount').onChange(v => { filmPass.uniforms.uCAAmount.value = v; });
+  film.close();
+
+  // --- Color Grading ---
+  const grading = gui.addFolder('Color Grading');
+  grading.add(settings, 'colorGrading').name('Enable').onChange(v => { filmPass.uniforms.uColorGrading.value = v ? 1 : 0; });
+  grading.add(settings, 'midSaturation', 0, 1.5, 0.01).name('Mid saturation').onChange(v => { filmPass.uniforms.uMidSaturation.value = v; });
+  grading.add(settings, 'shadowWarmth', 0, 0.5, 0.01).name('Shadow warmth').onChange(v => { filmPass.uniforms.uShadowWarmth.value = v; });
+  grading.add(settings, 'highlightWarmth', 0, 0.5, 0.01).name('Highlight warmth').onChange(v => { filmPass.uniforms.uHighlightWarmth.value = v; });
+  grading.close();
+
   // --- Transitions ---
   if (wipeDirections && setWipeDirection) {
     const trans = gui.addFolder('Transitions');
@@ -140,6 +192,9 @@ export function createGUI(ctx) {
   mat.close();
   light.close();
   post.close();
+  dofFolder.close();
+  film.close();
+  grading.close();
   cam.close();
 
   return gui;

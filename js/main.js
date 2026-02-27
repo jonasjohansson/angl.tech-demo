@@ -9,6 +9,8 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
 import { SSAOPass } from 'three/addons/postprocessing/SSAOPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { defaults } from './config.js';
 import { createGUI } from './gui.js';
 
@@ -31,7 +33,9 @@ async function init() {
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = defaults.postprocessing.exposure;
-  renderer.shadowMap.enabled = false;
+  const shadowDefaults = defaults.shadows || { enabled: true, mapSize: 2048 };
+  renderer.shadowMap.enabled = shadowDefaults.enabled;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.physicallyCorrectLights = true;
 
   // --- Scene ---
@@ -67,6 +71,12 @@ async function init() {
     composer.passes.forEach((pass) => {
       if (pass.camera) pass.camera = camera;
     });
+    // Toggle BokehPass ortho/persp define
+    if (bokehPass) {
+      const isPerspective = type === 'Perspective';
+      bokehPass.materialBokeh.defines.PERSPECTIVE_CAMERA = isPerspective ? 1 : 0;
+      bokehPass.materialBokeh.needsUpdate = true;
+    }
   }
 
   // --- Environment ---
@@ -90,7 +100,17 @@ async function init() {
     defaults.lighting.keyPosition.y,
     defaults.lighting.keyPosition.z
   );
-  keyLight.castShadow = false;
+  keyLight.castShadow = shadowDefaults.enabled;
+  keyLight.shadow.mapSize.width = shadowDefaults.mapSize;
+  keyLight.shadow.mapSize.height = shadowDefaults.mapSize;
+  keyLight.shadow.camera.near = 0.1;
+  keyLight.shadow.camera.far = 20;
+  keyLight.shadow.camera.left = -3;
+  keyLight.shadow.camera.right = 3;
+  keyLight.shadow.camera.top = 3;
+  keyLight.shadow.camera.bottom = -3;
+  keyLight.shadow.bias = -0.0005;
+  keyLight.shadow.normalBias = 0.02;
   scene.add(keyLight);
 
   // Fill light — cool-toned, softer
@@ -136,7 +156,7 @@ async function init() {
   );
   groundPlane.rotation.x = -Math.PI / 2;
   groundPlane.position.y = 0;
-  groundPlane.receiveShadow = false;
+  groundPlane.receiveShadow = true;
   groundPlane.visible = defaults.ground.visible;
   scene.add(groundPlane);
 
@@ -156,6 +176,7 @@ async function init() {
   });
   const plank = new THREE.Mesh(plankGeo, woodMat);
   plank.position.y = -0.02; // top surface at y=0
+  plank.receiveShadow = true;
   shelfGroup.add(plank);
 
   // Dark metal bracket material
@@ -173,14 +194,14 @@ async function init() {
     const vertGeo = new THREE.BoxGeometry(0.04, 0.3, 0.035);
     const vert = new THREE.Mesh(vertGeo, bracketMat);
     vert.position.set(0, -0.19, -0.38);
-    vert.castShadow = false;
+    vert.castShadow = true;
     bracketGroup.add(vert);
 
     // Horizontal arm (under plank)
     const horizGeo = new THREE.BoxGeometry(0.04, 0.035, 0.7);
     const horiz = new THREE.Mesh(horizGeo, bracketMat);
     horiz.position.set(0, -0.055, -0.05);
-    horiz.castShadow = false;
+    horiz.castShadow = true;
     bracketGroup.add(horiz);
 
     // Small diagonal brace for realism
@@ -189,7 +210,7 @@ async function init() {
     const brace = new THREE.Mesh(braceGeo, bracketMat);
     brace.position.set(0, -0.14, -0.2);
     brace.rotation.x = -Math.PI / 4;
-    brace.castShadow = false;
+    brace.castShadow = true;
     bracketGroup.add(brace);
 
     bracketGroup.position.x = xPos;
@@ -208,7 +229,7 @@ async function init() {
   });
   const wall = new THREE.Mesh(wallGeo, wallMat);
   wall.position.set(0, 5, -0.8);
-  wall.receiveShadow = false;
+  wall.receiveShadow = true;
   shelfGroup.add(wall);
 
   scene.add(shelfGroup);
@@ -266,6 +287,8 @@ async function init() {
           // Premium material setup + shadows
           m.traverse((child) => {
             if (child.isMesh) {
+              child.castShadow = true;
+              child.receiveShadow = true;
               if (child.material) {
                 const mat = child.material;
                 if (mat.isMeshStandardMaterial || mat.isMeshPhysicalMaterial) {
@@ -807,6 +830,100 @@ async function init() {
     toggleZoom();
   });
 
+  // --- ScandinavianFilmShader (combined vignette / grain / CA / color grading) ---
+  const ScandinavianFilmShader = {
+    uniforms: {
+      tDiffuse: { value: null },
+      uTime: { value: 0 },
+      uVignette: { value: 1 },
+      uVignetteAmount: { value: defaults.postprocessing.vignetteAmount },
+      uGrain: { value: 1 },
+      uGrainAmount: { value: defaults.postprocessing.grainAmount },
+      uCA: { value: 1 },
+      uCAAmount: { value: defaults.postprocessing.chromaticAberrationAmount },
+      uColorGrading: { value: 1 },
+      uMidSaturation: { value: defaults.postprocessing.midSaturation },
+      uShadowWarmth: { value: defaults.postprocessing.shadowWarmth },
+      uHighlightWarmth: { value: defaults.postprocessing.highlightWarmth },
+    },
+    vertexShader: /* glsl */`
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: /* glsl */`
+      uniform sampler2D tDiffuse;
+      uniform float uTime;
+      uniform float uVignette;
+      uniform float uVignetteAmount;
+      uniform float uGrain;
+      uniform float uGrainAmount;
+      uniform float uCA;
+      uniform float uCAAmount;
+      uniform float uColorGrading;
+      uniform float uMidSaturation;
+      uniform float uShadowWarmth;
+      uniform float uHighlightWarmth;
+      varying vec2 vUv;
+
+      // Hash-based noise
+      float hash(vec2 p) {
+        vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+        p3 += dot(p3, p3.yzx + 33.33);
+        return fract((p3.x + p3.y) * p3.z);
+      }
+
+      void main() {
+        vec2 uv = vUv;
+
+        // --- Chromatic Aberration ---
+        vec3 col;
+        if (uCA > 0.5) {
+          vec2 dir = uv - 0.5;
+          float d = length(dir);
+          vec2 offset = dir * d * uCAAmount;
+          col.r = texture2D(tDiffuse, uv + offset).r;
+          col.g = texture2D(tDiffuse, uv).g;
+          col.b = texture2D(tDiffuse, uv - offset).b;
+        } else {
+          col = texture2D(tDiffuse, uv).rgb;
+        }
+
+        // --- Color Grading (warm shadows, desaturated mids, warm highlights) ---
+        if (uColorGrading > 0.5) {
+          float luma = dot(col, vec3(0.2126, 0.7152, 0.0722));
+          // Desaturate midtones
+          col = mix(vec3(luma), col, uMidSaturation);
+          // Warm shadows (add warmth to dark areas)
+          float shadowMask = 1.0 - smoothstep(0.0, 0.4, luma);
+          col.r += shadowMask * uShadowWarmth;
+          col.g += shadowMask * uShadowWarmth * 0.4;
+          // Warm highlights
+          float hiMask = smoothstep(0.6, 1.0, luma);
+          col.r += hiMask * uHighlightWarmth;
+          col.g += hiMask * uHighlightWarmth * 0.6;
+        }
+
+        // --- Film Grain ---
+        if (uGrain > 0.5) {
+          float n = hash(uv * 1000.0 + uTime * 100.0) - 0.5;
+          col += n * uGrainAmount;
+        }
+
+        // --- Vignette ---
+        if (uVignette > 0.5) {
+          float d = distance(uv, vec2(0.5));
+          float vig = smoothstep(0.7, 0.3, d * uVignetteAmount * 3.0);
+          col *= mix(1.0, vig, uVignetteAmount);
+        }
+
+        gl_FragColor = vec4(col, 1.0);
+      }
+    `,
+  };
+
   // --- Post-processing ---
   const renderTarget = new THREE.WebGLRenderTarget(window.innerWidth, window.innerHeight, {
     type: THREE.HalfFloatType,
@@ -824,6 +941,18 @@ async function init() {
   ssaoPass.enabled = false;
   composer.addPass(ssaoPass);
 
+  // Depth of Field — BokehPass
+  const bokehPass = new BokehPass(scene, camera, {
+    focus: defaults.postprocessing.dofFocus,
+    aperture: defaults.postprocessing.dofAperture,
+    maxblur: defaults.postprocessing.dofMaxBlur,
+  });
+  bokehPass.enabled = defaults.postprocessing.dof;
+  // Set ortho mode for default ortho camera
+  bokehPass.materialBokeh.defines.PERSPECTIVE_CAMERA = cameraType === 'Perspective' ? 1 : 0;
+  bokehPass.materialBokeh.needsUpdate = true;
+  composer.addPass(bokehPass);
+
   // Bloom — subtle glow on specular highlights
   const bloomPass = new UnrealBloomPass(
     new THREE.Vector2(window.innerWidth, window.innerHeight),
@@ -833,6 +962,11 @@ async function init() {
   );
   bloomPass.enabled = true;
   composer.addPass(bloomPass);
+
+  // Scandinavian film look (vignette + grain + CA + color grading in one pass)
+  const filmPass = new ShaderPass(ScandinavianFilmShader);
+  filmPass.enabled = true;
+  composer.addPass(filmPass);
 
   // SMAA anti-aliasing
   const smaaPass = new SMAAPass(window.innerWidth, window.innerHeight);
@@ -858,6 +992,7 @@ async function init() {
     renderer.setSize(w, h);
     composer.setSize(w, h);
     ssaoPass.setSize(w, h);
+    bokehPass.renderTargetDepth.setSize(w, h);
   });
 
   // --- GUI ---
@@ -870,7 +1005,7 @@ async function init() {
   createGUI({
     renderer, scene, camera, model,
     lights: { ambient, keyLight, fillLight, rimLight, bounceLight },
-    groundPlane, grid, bloomPass, smaaPass, ssaoPass,
+    groundPlane, grid, bloomPass, smaaPass, ssaoPass, bokehPass, filmPass,
     loadModel, setView, switchCamera,
     viewNames: viewList,
     wipeDirections,
@@ -1223,6 +1358,7 @@ async function init() {
     updateCamera();
     updateExplode();
     updateHotspotPositions();
+    filmPass.uniforms.uTime.value = performance.now() * 0.001;
 
     const fromIdx = Math.floor(scrollPosition);
     const toIdx = Math.min(fromIdx + 1, contexts.length - 1);
