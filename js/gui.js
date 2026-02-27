@@ -30,7 +30,7 @@ function updateMaterials(model, params) {
 }
 
 export function createGUI(ctx) {
-  const { renderer, scene, camera, model, lights, groundPlane, grid, bloomPass, smaaPass, ssaoPass, bokehPass, filmPass, flarePass, loadModel, setView, switchCamera, viewNames, wipeDirections, setWipeDirection, sway } = ctx;
+  const { renderer, scene, camera, model, lights, groundPlane, grid, bloomPass, smaaPass, ssaoPass, bokehPass, filmPass, flarePass, toggleMap, loadModel, setView, switchCamera, viewNames, wipeDirections, setWipeDirection, sway } = ctx;
 
   let currentModel = model;
   const gui = new GUI({ title: 'ANGL Viewer' });
@@ -104,6 +104,33 @@ export function createGUI(ctx) {
   mat.add(settings, 'metalness', 0, 1, 0.01).onChange(() => { updateMaterials(currentModel, settings); });
   mat.add(settings, 'clearcoat', 0, 1, 0.01).onChange(() => { updateMaterials(currentModel, settings); });
   mat.add(settings, 'clearcoatRoughness', 0, 1, 0.01).onChange(() => { updateMaterials(currentModel, settings); });
+
+  // Case panel color (Solid2 objects)
+  if (toggleMap) {
+    const allPanels = [...toggleMap.individuals, ...toggleMap.groupMembers];
+    const panelSettings = { panelColor: '#888888' };
+    // Read initial color from first panel mesh
+    for (const obj of allPanels) {
+      obj.traverse((c) => {
+        if (c.isMesh && c.material) {
+          panelSettings.panelColor = '#' + c.material.color.getHexString();
+          return;
+        }
+      });
+      break;
+    }
+    mat.addColor(panelSettings, 'panelColor').name('Panel color').onChange(v => {
+      const col = new THREE.Color(v);
+      allPanels.forEach((obj) => {
+        obj.traverse((c) => {
+          if (c.isMesh && c.material) {
+            c.material.color.copy(col);
+            c.material.needsUpdate = true;
+          }
+        });
+      });
+    });
+  }
 
   // --- Lighting ---
   const light = gui.addFolder('Lighting');

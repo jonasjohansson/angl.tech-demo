@@ -1083,6 +1083,7 @@ async function init() {
     renderer, scene, camera, model,
     lights: { ambient, keyLight, fillLight, rimLight, bounceLight },
     groundPlane, grid, bloomPass, smaaPass, ssaoPass, bokehPass, filmPass, flarePass,
+    toggleMap,
     loadModel, setView, switchCamera,
     viewNames: viewList,
     wipeDirections,
