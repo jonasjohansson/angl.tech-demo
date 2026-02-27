@@ -865,6 +865,7 @@ async function init() {
     'Top → Down': 0, 'Bottom → Up': 1,
     'Left → Right': 2, 'Right → Left': 3,
     'Diagonal ↘': 4, 'Diagonal ↙': 5,
+    'Isometric ↘': 6, 'Isometric ↙': 7,
   };
   createGUI({
     renderer, scene, camera, model,
@@ -1126,7 +1127,7 @@ async function init() {
     type: THREE.HalfFloatType,
   });
 
-  // Wipe direction: 0=top-down, 1=bottom-up, 2=left-right, 3=right-left, 4=diagonal TL-BR, 5=diagonal TR-BL
+  // Wipe direction modes
   let wipeDirection = 0;
 
   const wipeMaterial = new THREE.ShaderMaterial({
@@ -1151,12 +1152,14 @@ async function init() {
       varying vec2 vUv;
       void main() {
         float t;
-        if (direction == 0)      t = 1.0 - vUv.y;                   // top → down
-        else if (direction == 1) t = vUv.y;                          // bottom → up
-        else if (direction == 2) t = vUv.x;                          // left → right
-        else if (direction == 3) t = 1.0 - vUv.x;                   // right → left
-        else if (direction == 4) t = (vUv.x + 1.0 - vUv.y) / 2.0;  // diagonal TL → BR
-        else                     t = (1.0 - vUv.x + 1.0 - vUv.y) / 2.0; // diagonal TR → BL
+        if (direction == 0)      t = 1.0 - vUv.y;                          // top → down
+        else if (direction == 1) t = vUv.y;                                 // bottom → up
+        else if (direction == 2) t = vUv.x;                                 // left → right
+        else if (direction == 3) t = 1.0 - vUv.x;                          // right → left
+        else if (direction == 4) t = (vUv.x + 1.0 - vUv.y) / 2.0;         // diagonal 45° TL → BR
+        else if (direction == 5) t = (1.0 - vUv.x + 1.0 - vUv.y) / 2.0;   // diagonal 45° TR → BL
+        else if (direction == 6) t = (vUv.x * 0.5 + (1.0 - vUv.y)) / 1.5; // iso: steep from TR corner
+        else                     t = ((1.0 - vUv.x) * 0.5 + vUv.y) / 1.5; // iso reverse: from BL corner
         float mask = step(t, progress);
         gl_FragColor = mix(texture2D(tA, vUv), texture2D(tB, vUv), mask);
       }
