@@ -1,8 +1,7 @@
 import * as THREE from 'three';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+// OrbitControls removed — using mouse-position orbit camera
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
-import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
@@ -26,47 +25,52 @@ async function init() {
     powerPreference: 'high-performance',
     stencil: false,
   });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setPixelRatio(window.devicePixelRatio);
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = defaults.postprocessing.exposure;
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.shadowMap.enabled = false;
   renderer.physicallyCorrectLights = true;
 
   // --- Scene ---
   const scene = new THREE.Scene();
 
-  // --- Camera ---
-  const camera = new THREE.PerspectiveCamera(
-    defaults.camera.fov,
-    window.innerWidth / window.innerHeight,
-    0.01,
-    100
-  );
-  camera.position.set(
-    defaults.camera.position.x,
-    defaults.camera.position.y,
-    defaults.camera.position.z
-  );
+  // --- Cameras ---
+  const FRUSTUM_DEFAULT = 2.2;
+  let frustumSize = FRUSTUM_DEFAULT;
+  let targetFrustum = FRUSTUM_DEFAULT;
+  let zoomed = false;
+  const aspect = window.innerWidth / window.innerHeight;
 
-  // --- Environment (HDR) — premium studio HDRI ---
-  progressText.textContent = 'loading environment...';
-  const hdrUrl = 'https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/2k/lebombo_2k.hdr';
-  const envMap = await new RGBELoader().setDataType(THREE.FloatType).loadAsync(hdrUrl);
-  envMap.mapping = THREE.EquirectangularReflectionMapping;
+  const orthoCamera = new THREE.OrthographicCamera(
+    -frustumSize * aspect / 2, frustumSize * aspect / 2,
+    frustumSize / 2, -frustumSize / 2,
+    0.01, 100
+  );
+  orthoCamera.position.set(0, 0.3, 2.5);
 
-  const pmremGenerator = new THREE.PMREMGenerator(renderer);
-  pmremGenerator.compileEquirectangularShader();
-  const envTexture = pmremGenerator.fromEquirectangular(envMap).texture;
-  scene.environment = envTexture;
-  scene.background = envTexture;
+  const perspCamera = new THREE.PerspectiveCamera(40, aspect, 0.01, 100);
+  perspCamera.position.set(0, 0.3, 2.5);
+
+  let camera = orthoCamera;
+  let cameraType = 'Orthographic';
+
+  function switchCamera(type) {
+    cameraType = type;
+    const prev = camera;
+    camera = type === 'Orthographic' ? orthoCamera : perspCamera;
+    camera.position.copy(prev.position);
+    camera.quaternion.copy(prev.quaternion);
+    // Update composer passes that reference the camera
+    composer.passes.forEach((pass) => {
+      if (pass.camera) pass.camera = camera;
+    });
+  }
+
+  // --- Environment ---
+  scene.background = new THREE.Color(0xf0ebe3);
   scene.environmentIntensity = defaults.lighting.envIntensity;
-  scene.backgroundIntensity = 0.25;
-  scene.backgroundBlurriness = 0;
-  pmremGenerator.dispose();
-  envMap.dispose();
 
   // --- Lights (3-point studio setup for premium product) ---
   const ambient = new THREE.AmbientLight(
@@ -85,17 +89,7 @@ async function init() {
     defaults.lighting.keyPosition.y,
     defaults.lighting.keyPosition.z
   );
-  keyLight.castShadow = true;
-  keyLight.shadow.mapSize.set(4096, 4096);
-  keyLight.shadow.camera.near = 0.1;
-  keyLight.shadow.camera.far = 15;
-  keyLight.shadow.camera.left = -3;
-  keyLight.shadow.camera.right = 3;
-  keyLight.shadow.camera.top = 3;
-  keyLight.shadow.camera.bottom = -3;
-  keyLight.shadow.bias = -0.0003;
-  keyLight.shadow.normalBias = 0.02;
-  keyLight.shadow.radius = 3;
+  keyLight.castShadow = false;
   scene.add(keyLight);
 
   // Fill light — cool-toned, softer
@@ -141,13 +135,82 @@ async function init() {
   );
   groundPlane.rotation.x = -Math.PI / 2;
   groundPlane.position.y = 0;
-  groundPlane.receiveShadow = true;
+  groundPlane.receiveShadow = false;
   groundPlane.visible = defaults.ground.visible;
   scene.add(groundPlane);
 
-  const grid = new THREE.GridHelper(5, 20, 0x333333, 0x222222);
-  grid.visible = defaults.scene.showGrid;
-  scene.add(grid);
+  const grid = null; // grid removed
+
+  // --- Wall-mounted shelf ---
+  const shelfGroup = new THREE.Group();
+
+  // Wood plank
+  const plankGeo = new THREE.BoxGeometry(3.5, 0.04, 1.6);
+  const woodMat = new THREE.MeshPhysicalMaterial({
+    color: 0xc8a87c,
+    roughness: 0.65,
+    metalness: 0.0,
+    clearcoat: 0.15,
+    clearcoatRoughness: 0.4,
+  });
+  const plank = new THREE.Mesh(plankGeo, woodMat);
+  plank.position.y = -0.02; // top surface at y=0
+  shelfGroup.add(plank);
+
+  // Dark metal bracket material
+  const bracketMat = new THREE.MeshPhysicalMaterial({
+    color: 0x222222,
+    roughness: 0.4,
+    metalness: 0.85,
+  });
+
+  // L-shaped bracket helper: vertical arm against wall + horizontal arm under plank
+  function createBracket(xPos) {
+    const bracketGroup = new THREE.Group();
+
+    // Vertical arm (against wall)
+    const vertGeo = new THREE.BoxGeometry(0.04, 0.3, 0.035);
+    const vert = new THREE.Mesh(vertGeo, bracketMat);
+    vert.position.set(0, -0.19, -0.38);
+    vert.castShadow = false;
+    bracketGroup.add(vert);
+
+    // Horizontal arm (under plank)
+    const horizGeo = new THREE.BoxGeometry(0.04, 0.035, 0.7);
+    const horiz = new THREE.Mesh(horizGeo, bracketMat);
+    horiz.position.set(0, -0.055, -0.05);
+    horiz.castShadow = false;
+    bracketGroup.add(horiz);
+
+    // Small diagonal brace for realism
+    const braceLen = 0.28;
+    const braceGeo = new THREE.BoxGeometry(0.03, 0.025, braceLen);
+    const brace = new THREE.Mesh(braceGeo, bracketMat);
+    brace.position.set(0, -0.14, -0.2);
+    brace.rotation.x = -Math.PI / 4;
+    brace.castShadow = false;
+    bracketGroup.add(brace);
+
+    bracketGroup.position.x = xPos;
+    return bracketGroup;
+  }
+
+  shelfGroup.add(createBracket(-1.1));
+  shelfGroup.add(createBracket(1.1));
+
+  // Wall behind the shelf
+  const wallGeo = new THREE.PlaneGeometry(20, 20);
+  const wallMat = new THREE.MeshPhysicalMaterial({
+    color: 0xf0ebe3,
+    roughness: 0.95,
+    metalness: 0.0,
+  });
+  const wall = new THREE.Mesh(wallGeo, wallMat);
+  wall.position.set(0, 5, -0.8);
+  wall.receiveShadow = false;
+  shelfGroup.add(wall);
+
+  scene.add(shelfGroup);
 
   // --- Model loader ---
   const MODEL_PATHS = {
@@ -156,6 +219,7 @@ async function init() {
   };
 
   let currentModel = null;
+  let onModelLoaded = null; // set after toggleable parts are defined
 
   function loadModel(key) {
     return new Promise((resolve, reject) => {
@@ -201,8 +265,6 @@ async function init() {
           // Premium material setup + shadows
           m.traverse((child) => {
             if (child.isMesh) {
-              child.castShadow = true;
-              child.receiveShadow = true;
               if (child.material) {
                 const mat = child.material;
                 if (mat.isMeshStandardMaterial || mat.isMeshPhysicalMaterial) {
@@ -227,6 +289,8 @@ async function init() {
 
           scene.add(m);
           currentModel = m;
+          // Re-scan for toggleable parts after model swap
+          if (onModelLoaded) onModelLoaded(m);
           dracoLoader.dispose();
           resolve(m);
         },
@@ -239,22 +303,323 @@ async function init() {
   progressText.textContent = 'loading model...';
   const model = await loadModel('full');
 
+  // Log full model hierarchy for debugging part names
+  model.traverse((child) => {
+    const depth = [];
+    let p = child.parent;
+    while (p) { depth.push(p.name || '(no name)'); p = p.parent; }
+    console.log(
+      child.isMesh ? 'MESH' : 'NODE',
+      `"${child.name}"`,
+      '| path:', depth.reverse().join(' > ')
+    );
+  });
+
+  // --- Toggleable parts ---
+  // Discover all Solid2-related objects and categorise them:
+  //   "Solid2" (exact) and names containing ".001" → individual toggle
+  //   Everything else with "Solid2" in the name → group toggle
+
+  function buildToggleMap(root) {
+    const individuals = [];
+    const groupMembers = [];
+    const allSolid2 = [];
+
+    // First pass: find every object whose name contains "Solid2"
+    root.traverse((child) => {
+      if (child.name && child.name.includes('Solid2')) {
+        allSolid2.push(child);
+      }
+    });
+
+    console.log('All Solid2 objects found:', allSolid2.map((p) =>
+      `${p.name} (${p.isMesh ? 'mesh' : 'node'}, children: ${p.children.length})`
+    ));
+
+    // Categorise: exact "Solid2" or contains ".001" → individual, rest → group
+    // Process top-level Solid2 objects (not nested under another Solid2 object)
+    // Exception: "Solid2" and "Solid2.001" are both kept even if one is parent of the other
+    allSolid2.forEach((child) => {
+      if (child.name === 'Solid2' || child.name.includes('.001')) {
+        individuals.push(child);
+      } else {
+        groupMembers.push(child);
+      }
+    });
+
+    console.log('Toggle individuals:', individuals.map((p) => p.name));
+    console.log('Toggle group members:', groupMembers.map((p) => p.name));
+    return { individuals, groupMembers };
+  }
+
+  let toggleMap = buildToggleMap(model);
+  onModelLoaded = (m) => {
+    toggleMap = buildToggleMap(m);
+    explodeParts = buildExplodeParts(m);
+  };
+
+  const raycaster = new THREE.Raycaster();
+  const pointer = new THREE.Vector2();
+
+  // Collect all meshes from a list of objects
+  function collectMeshes(objects) {
+    const meshes = [];
+    objects.forEach((obj) => {
+      obj.traverse((c) => { if (c.isMesh) meshes.push(c); });
+    });
+    return meshes;
+  }
+
+  // Walk up from a mesh to find which toggle target it belongs to
+  function findOwner(mesh, candidates) {
+    let obj = mesh;
+    while (obj) {
+      if (candidates.includes(obj)) return obj;
+      obj = obj.parent;
+    }
+    return null;
+  }
+
+  // --- Hover highlight for toggleable parts ---
+  let hoveredGroup = null; // currently highlighted group (array of objects)
+  const highlightEmissive = new THREE.Color(0x333333);
+  const defaultEmissive = new THREE.Color(0x000000);
+
+  function setGroupEmissive(objects, color) {
+    objects.forEach((obj) => {
+      obj.traverse((c) => {
+        if (c.isMesh && c.material) {
+          c.material.emissive.copy(color);
+        }
+      });
+    });
+  }
+
+  function getToggleGroup(mesh) {
+    // Returns the array of objects that would be toggled if this mesh is clicked
+    const indivOwner = findOwner(mesh, toggleMap.individuals);
+    if (indivOwner) return [indivOwner];
+    const groupOwner = findOwner(mesh, toggleMap.groupMembers);
+    if (groupOwner) return toggleMap.groupMembers;
+    return null;
+  }
+
+  renderer.domElement.addEventListener('mousemove', (e) => {
+    pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
+    pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
+    raycaster.setFromCamera(pointer, camera);
+
+    const allToggleable = [...toggleMap.individuals, ...toggleMap.groupMembers];
+    const meshes = collectMeshes(allToggleable.filter((p) => p.visible));
+    const hits = raycaster.intersectObjects(meshes, false);
+
+    let newGroup = null;
+    if (hits.length > 0) {
+      newGroup = getToggleGroup(hits[0].object);
+    }
+
+    // Only update if the hovered group changed
+    if (newGroup !== hoveredGroup) {
+      if (hoveredGroup) setGroupEmissive(hoveredGroup, defaultEmissive);
+      if (newGroup) setGroupEmissive(newGroup, highlightEmissive);
+      hoveredGroup = newGroup;
+      renderer.domElement.style.cursor = newGroup ? 'pointer' : '';
+    }
+  });
+
+  // Check if a click hits a toggleable part; returns true if handled
+  function tryTogglePart(event) {
+    pointer.x = (event.clientX / window.innerWidth) * 2 - 1;
+    pointer.y = -(event.clientY / window.innerHeight) * 2 + 1;
+    raycaster.setFromCamera(pointer, camera);
+
+    const allToggleable = [...toggleMap.individuals, ...toggleMap.groupMembers];
+
+    // Temporarily make hidden parts visible for raycasting
+    const wasHidden = [];
+    allToggleable.forEach((part) => {
+      if (!part.visible) { wasHidden.push(part); part.visible = true; }
+    });
+
+    const meshes = collectMeshes(allToggleable);
+    const hits = raycaster.intersectObjects(meshes, false);
+
+    // Restore hidden state
+    wasHidden.forEach((part) => { part.visible = false; });
+
+    if (hits.length > 0) {
+      const hitMesh = hits[0].object;
+
+      // Check individual toggles first
+      const indivOwner = findOwner(hitMesh, toggleMap.individuals);
+      if (indivOwner) {
+        indivOwner.visible = !indivOwner.visible;
+        // Clear highlight
+        if (hoveredGroup) { setGroupEmissive(hoveredGroup, defaultEmissive); hoveredGroup = null; }
+        return true;
+      }
+
+      // Check group toggles
+      const groupOwner = findOwner(hitMesh, toggleMap.groupMembers);
+      if (groupOwner) {
+        const newVis = !groupOwner.visible;
+        toggleMap.groupMembers.forEach((m) => { m.visible = newVis; });
+        if (hoveredGroup) { setGroupEmissive(hoveredGroup, defaultEmissive); hoveredGroup = null; }
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // --- Explode view ---
+  // Collect every mesh in the model, compute outward direction from center
+  // Clamp direction upward so parts never explode downward into the shelf
+  let exploded = false;
+  let explodeT = 0; // 0 = assembled, 1 = fully exploded
+  const EXPLODE_DISTANCE = 0.3;
+
+  function buildExplodeParts(root) {
+    const parts = [];
+    const modelBox = new THREE.Box3().setFromObject(root);
+    const modelCtr = modelBox.getCenter(new THREE.Vector3());
+    const box = new THREE.Box3();
+
+    // Go deep — every mesh is an explode unit
+    root.traverse((child) => {
+      if (!child.isMesh) return;
+
+      box.setFromObject(child);
+      const childCenter = box.getCenter(new THREE.Vector3());
+
+      // Direction from model center to part center (world space)
+      const dir = new THREE.Vector3().subVectors(childCenter, modelCtr);
+
+      // Clamp: don't let parts go downward (y < 0 in world = into the shelf)
+      dir.y = Math.max(dir.y, 0.05);
+      dir.normalize();
+
+      parts.push({
+        object: child,
+        originalPos: child.position.clone(),
+        // Convert world-space direction to parent-local-space
+        direction: child.parent
+          ? dir.applyQuaternion(child.parent.getWorldQuaternion(new THREE.Quaternion()).invert())
+          : dir,
+      });
+    });
+    console.log('Explode parts:', parts.length);
+    return parts;
+  }
+
+  let explodeParts = buildExplodeParts(model);
+
+  function updateExplode() {
+    const target = exploded ? 1 : 0;
+    explodeT += (target - explodeT) * 0.08;
+
+    explodeParts.forEach(({ object, originalPos, direction }) => {
+      object.position.copy(originalPos).addScaledVector(direction, explodeT * EXPLODE_DISTANCE);
+    });
+  }
+
   progressBar.style.width = '100%';
   progressText.textContent = 'initializing...';
 
-  // --- Controls ---
-  const controls = new OrbitControls(camera, renderer.domElement);
-  controls.enableDamping = true;
-  controls.dampingFactor = 0.06;
-  controls.autoRotate = defaults.camera.autoRotate;
-  controls.autoRotateSpeed = defaults.camera.autoRotateSpeed;
-  controls.minDistance = 0.05;
-  controls.maxDistance = 20;
-  controls.enablePan = true;
+  // --- Camera orbit (click & keys to rotate) ---
   const modelBox = new THREE.Box3().setFromObject(model);
   const modelCenter = modelBox.getCenter(new THREE.Vector3());
-  controls.target.set(0, modelCenter.y, 0);
-  controls.update();
+  const modelSize = modelBox.getSize(new THREE.Vector3());
+  const modelHeight = modelSize.y;
+
+  // Compute zoomed frustum so object fills ~95% of screen height
+  const FRUSTUM_ZOOMED_CALC = modelHeight / 0.95;
+
+  const defaultOrbitTarget = new THREE.Vector3(0, modelCenter.y, 0);
+  const zoomedOrbitTarget = new THREE.Vector3(0, modelCenter.y, 0); // center on object
+  const orbitTarget = defaultOrbitTarget.clone();
+  let targetOrbitY = defaultOrbitTarget.y;
+  const orbitRadius = 2.5;
+  const elevation = 0.15;
+
+  let currentAzimuth = 0;
+  let targetAzimuth = 0;
+
+  function toggleZoom() {
+    zoomed = !zoomed;
+    targetFrustum = zoomed ? FRUSTUM_ZOOMED_CALC : FRUSTUM_DEFAULT;
+    targetOrbitY = zoomed ? zoomedOrbitTarget.y : defaultOrbitTarget.y;
+    console.log('Zoom:', zoomed ? 'IN' : 'OUT', 'frustum:', targetFrustum.toFixed(2), 'modelHeight:', modelHeight.toFixed(2));
+  }
+
+  function updateCamera() {
+    currentAzimuth += (targetAzimuth - currentAzimuth) * 0.1;
+
+    // Smooth zoom interpolation
+    frustumSize += (targetFrustum - frustumSize) * 0.08;
+    orbitTarget.y += (targetOrbitY - orbitTarget.y) * 0.08;
+    const a = window.innerWidth / window.innerHeight;
+    orthoCamera.left = -frustumSize * a / 2;
+    orthoCamera.right = frustumSize * a / 2;
+    orthoCamera.top = frustumSize / 2;
+    orthoCamera.bottom = -frustumSize / 2;
+    orthoCamera.updateProjectionMatrix();
+    // For perspective camera, map frustum to FOV
+    perspCamera.fov = frustumSize * (40 / FRUSTUM_DEFAULT);
+    perspCamera.updateProjectionMatrix();
+
+    camera.position.x = orbitTarget.x + orbitRadius * Math.sin(currentAzimuth) * Math.cos(elevation);
+    camera.position.y = orbitTarget.y + orbitRadius * Math.sin(elevation);
+    camera.position.z = orbitTarget.z + orbitRadius * Math.cos(currentAzimuth) * Math.cos(elevation);
+
+    camera.lookAt(orbitTarget);
+  }
+
+  // --- View presets ---
+  const viewList = ['Front', 'Right', 'Rear', 'Left'];
+  const viewAngles = { Front: 0, Right: -Math.PI / 2, Rear: Math.PI, Left: Math.PI / 2 };
+  let viewIndex = 0;
+
+  function setView(name) {
+    const a = viewAngles[name];
+    if (a !== undefined) {
+      targetAzimuth = a;
+      viewIndex = viewList.indexOf(name);
+    }
+  }
+
+  // Click: toggle part if hit, otherwise cycle views
+  renderer.domElement.addEventListener('click', (e) => {
+    if (tryTogglePart(e)) return; // clicked a toggleable part
+    viewIndex = (viewIndex + 1) % viewList.length;
+    setView(viewList[viewIndex]);
+  });
+  renderer.domElement.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    if (tryTogglePart(e)) return;
+    viewIndex = (viewIndex - 1 + viewList.length) % viewList.length;
+    setView(viewList[viewIndex]);
+  });
+
+  // Arrow keys to rotate, Z or ArrowUp/ArrowDown to zoom
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight') {
+      viewIndex = (viewIndex + 1) % viewList.length;
+      setView(viewList[viewIndex]);
+    } else if (e.key === 'ArrowLeft') {
+      viewIndex = (viewIndex - 1 + viewList.length) % viewList.length;
+      setView(viewList[viewIndex]);
+    } else if (e.key === 'z' || e.key === 'Z' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      toggleZoom();
+    } else if (e.key === 'e' || e.key === 'E') {
+      exploded = !exploded;
+    }
+  });
+
+  // Double-click to toggle zoom
+  renderer.domElement.addEventListener('dblclick', (e) => {
+    e.preventDefault();
+    toggleZoom();
+  });
 
   // --- Post-processing ---
   const renderTarget = new THREE.WebGLRenderTarget(window.innerWidth, window.innerHeight, {
@@ -295,8 +660,15 @@ async function init() {
   window.addEventListener('resize', () => {
     const w = window.innerWidth;
     const h = window.innerHeight;
-    camera.aspect = w / h;
-    camera.updateProjectionMatrix();
+    const a = w / h;
+    // Update both cameras
+    orthoCamera.left = -frustumSize * a / 2;
+    orthoCamera.right = frustumSize * a / 2;
+    orthoCamera.top = frustumSize / 2;
+    orthoCamera.bottom = -frustumSize / 2;
+    orthoCamera.updateProjectionMatrix();
+    perspCamera.aspect = a;
+    perspCamera.updateProjectionMatrix();
     renderer.setSize(w, h);
     composer.setSize(w, h);
     ssaoPass.setSize(w, h);
@@ -304,10 +676,256 @@ async function init() {
 
   // --- GUI ---
   createGUI({
-    renderer, scene, camera, controls, model,
+    renderer, scene, camera, model,
     lights: { ambient, keyLight, fillLight, rimLight, bounceLight },
     groundPlane, grid, bloomPass, smaaPass, ssaoPass,
-    loadModel,
+    loadModel, setView, switchCamera,
+    viewNames: viewList,
+  });
+
+  // --- Aesthetic contexts (scroll to switch) ---
+  const C = THREE.Color, V = THREE.Vector3;
+  const contexts = [
+    { // 1 — Light oak shelf, warm white plaster wall, matte black brackets
+      name: 'Scandinavian',
+      background: new C(0xf0ebe3),
+      wall: new C(0xf0ebe3), wallRoughness: 0.95, wallMetalness: 0.0,
+      plank: new C(0xc8a87c),
+      plankRoughness: 0.65, plankMetalness: 0.0, plankClearcoat: 0.15,
+      bracket: new C(0x222222), bracketRoughness: 0.4, bracketMetalness: 0.85,
+      ambientIntensity: 0.4, ambientColor: new C(0xffffff),
+      keyIntensity: 2.2, keyColor: new C(0xfff5e6), keyPos: new V(3, 4, 2),
+      fillIntensity: 0.8, fillColor: new C(0x8899bb),
+      rimIntensity: 1.2, rimColor: new C(0xffddaa),
+      exposure: 1.1,
+    },
+    { // 2 — Polished white marble shelf, light grey wall, chrome brackets
+      name: 'Marble',
+      background: new C(0xe8eaef),
+      wall: new C(0xe0e3e8), wallRoughness: 0.3, wallMetalness: 0.0,
+      plank: new C(0xf2f2f8),
+      plankRoughness: 0.08, plankMetalness: 0.0, plankClearcoat: 0.7,
+      bracket: new C(0xcccccc), bracketRoughness: 0.15, bracketMetalness: 0.95,
+      ambientIntensity: 0.5, ambientColor: new C(0xeef0ff),
+      keyIntensity: 1.8, keyColor: new C(0xffffff), keyPos: new V(4, 3, 3),
+      fillIntensity: 0.7, fillColor: new C(0x99aacc),
+      rimIntensity: 0.8, rimColor: new C(0xddeeff),
+      exposure: 1.05,
+    },
+    { // 3 — Light concrete shelf, pale grey wall, brushed nickel brackets
+      name: 'Minimal',
+      background: new C(0xd8d8d8),
+      wall: new C(0xd0d0d0), wallRoughness: 0.92, wallMetalness: 0.0,
+      plank: new C(0xc0c0c0),
+      plankRoughness: 0.95, plankMetalness: 0.0, plankClearcoat: 0.0,
+      bracket: new C(0x999999), bracketRoughness: 0.35, bracketMetalness: 0.8,
+      ambientIntensity: 0.45, ambientColor: new C(0xeeeeff),
+      keyIntensity: 1.8, keyColor: new C(0xffffff), keyPos: new V(2, 5, 3),
+      fillIntensity: 0.9, fillColor: new C(0xbbccdd),
+      rimIntensity: 0.6, rimColor: new C(0xddddee),
+      exposure: 1.1,
+    },
+    { // 4 — Rich walnut shelf, warm linen wall, brushed brass brackets
+      name: 'Walnut',
+      background: new C(0xe8e0d4),
+      wall: new C(0xe4dcd0), wallRoughness: 0.88, wallMetalness: 0.0,
+      plank: new C(0x5a3a22),
+      plankRoughness: 0.5, plankMetalness: 0.0, plankClearcoat: 0.4,
+      bracket: new C(0xb89860), bracketRoughness: 0.4, bracketMetalness: 0.8,
+      ambientIntensity: 0.35, ambientColor: new C(0xfff8ee),
+      keyIntensity: 2.0, keyColor: new C(0xfff0dd), keyPos: new V(3, 4, 2),
+      fillIntensity: 0.6, fillColor: new C(0xbbaa88),
+      rimIntensity: 1.0, rimColor: new C(0xeeddbb),
+      exposure: 1.05,
+    },
+    { // 5 — Brushed stainless shelf, soft white wall, matching steel brackets
+      name: 'Steel',
+      background: new C(0xe8e8ec),
+      wall: new C(0xe0e0e5), wallRoughness: 0.6, wallMetalness: 0.0,
+      plank: new C(0xb0b0b8),
+      plankRoughness: 0.3, plankMetalness: 0.9, plankClearcoat: 0.1,
+      bracket: new C(0x888890), bracketRoughness: 0.25, bracketMetalness: 0.92,
+      ambientIntensity: 0.4, ambientColor: new C(0xeeeeff),
+      keyIntensity: 2.0, keyColor: new C(0xffffff), keyPos: new V(3, 5, 1),
+      fillIntensity: 0.6, fillColor: new C(0x99aabb),
+      rimIntensity: 1.2, rimColor: new C(0xccddee),
+      exposure: 1.15,
+    },
+    { // 6 — Warm terracotta shelf, cream stucco wall, dark bronze brackets
+      name: 'Terracotta',
+      background: new C(0xece0d0),
+      wall: new C(0xe8dcc8), wallRoughness: 0.9, wallMetalness: 0.0,
+      plank: new C(0xc08060),
+      plankRoughness: 0.85, plankMetalness: 0.0, plankClearcoat: 0.0,
+      bracket: new C(0x4a3828), bracketRoughness: 0.5, bracketMetalness: 0.75,
+      ambientIntensity: 0.4, ambientColor: new C(0xfff0dd),
+      keyIntensity: 2.0, keyColor: new C(0xffeecc), keyPos: new V(4, 4, 2),
+      fillIntensity: 0.6, fillColor: new C(0xccaa88),
+      rimIntensity: 0.8, rimColor: new C(0xffddbb),
+      exposure: 1.05,
+    },
+    { // 7 — Glossy black lacquer shelf, dark charcoal wall, gold brackets
+      name: 'Noir',
+      background: new C(0x1a1a1a),
+      wall: new C(0x151515), wallRoughness: 0.4, wallMetalness: 0.0,
+      plank: new C(0x0e0e0e),
+      plankRoughness: 0.05, plankMetalness: 0.0, plankClearcoat: 0.95,
+      bracket: new C(0xc8a050), bracketRoughness: 0.2, bracketMetalness: 0.95,
+      ambientIntensity: 0.15, ambientColor: new C(0xffffff),
+      keyIntensity: 2.8, keyColor: new C(0xfff0dd), keyPos: new V(4, 5, 1),
+      fillIntensity: 0.2, fillColor: new C(0x333333),
+      rimIntensity: 2.0, rimColor: new C(0xddaa44),
+      exposure: 1.3,
+    },
+    { // 8 — White ceramic shelf, soft sage wall, copper brackets
+      name: 'Sage',
+      background: new C(0xd8ddd4),
+      wall: new C(0xd0d8cc), wallRoughness: 0.85, wallMetalness: 0.0,
+      plank: new C(0xf0efea),
+      plankRoughness: 0.2, plankMetalness: 0.0, plankClearcoat: 0.5,
+      bracket: new C(0xcc7744), bracketRoughness: 0.35, bracketMetalness: 0.88,
+      ambientIntensity: 0.45, ambientColor: new C(0xf0f5ee),
+      keyIntensity: 1.8, keyColor: new C(0xffffff), keyPos: new V(2, 4, 3),
+      fillIntensity: 0.7, fillColor: new C(0x99aa88),
+      rimIntensity: 0.9, rimColor: new C(0xffcc99),
+      exposure: 1.1,
+    },
+    { // 9 — Light ash wood shelf, soft blush wall, rose gold brackets
+      name: 'Blush',
+      background: new C(0xf0e0dd),
+      wall: new C(0xecdad6), wallRoughness: 0.85, wallMetalness: 0.0,
+      plank: new C(0xe0cbb5),
+      plankRoughness: 0.6, plankMetalness: 0.0, plankClearcoat: 0.2,
+      bracket: new C(0xcc9988), bracketRoughness: 0.3, bracketMetalness: 0.85,
+      ambientIntensity: 0.45, ambientColor: new C(0xfff0ee),
+      keyIntensity: 1.8, keyColor: new C(0xffeedd), keyPos: new V(3, 4, 2),
+      fillIntensity: 0.7, fillColor: new C(0xddaaaa),
+      rimIntensity: 0.9, rimColor: new C(0xffccbb),
+      exposure: 1.1,
+    },
+    { // 10 — Smoked oak shelf, warm greige wall, oxidized brass brackets
+      name: 'Gallery',
+      background: new C(0xe0dcd5),
+      wall: new C(0xdad6ce), wallRoughness: 0.8, wallMetalness: 0.0,
+      plank: new C(0x7a6a55),
+      plankRoughness: 0.55, plankMetalness: 0.0, plankClearcoat: 0.3,
+      bracket: new C(0x887755), bracketRoughness: 0.55, bracketMetalness: 0.7,
+      ambientIntensity: 0.4, ambientColor: new C(0xfff5ee),
+      keyIntensity: 1.8, keyColor: new C(0xfff8ee), keyPos: new V(3, 4, 2),
+      fillIntensity: 0.6, fillColor: new C(0xbbaa88),
+      rimIntensity: 0.8, rimColor: new C(0xddccaa),
+      exposure: 1.05,
+    },
+  ];
+
+  let contextIndex = 0;
+  let targetIndex = 0;
+  let wipeProgress = 0; // 0 = all old, 1 = all new
+
+  function applyContextNow(ctx) {
+    scene.background.copy(ctx.background);
+    wallMat.color.copy(ctx.wall);
+    wallMat.roughness = ctx.wallRoughness ?? 0.95;
+    wallMat.metalness = ctx.wallMetalness ?? 0.0;
+    woodMat.color.copy(ctx.plank);
+    woodMat.roughness = ctx.plankRoughness;
+    woodMat.metalness = ctx.plankMetalness ?? 0.0;
+    woodMat.clearcoat = ctx.plankClearcoat ?? 0.15;
+    bracketMat.color.copy(ctx.bracket);
+    bracketMat.roughness = ctx.bracketRoughness ?? 0.4;
+    bracketMat.metalness = ctx.bracketMetalness ?? 0.85;
+    ambient.intensity = ctx.ambientIntensity;
+    ambient.color.copy(ctx.ambientColor);
+    keyLight.intensity = ctx.keyIntensity;
+    keyLight.color.copy(ctx.keyColor);
+    keyLight.position.copy(ctx.keyPos);
+    fillLight.intensity = ctx.fillIntensity;
+    fillLight.color.copy(ctx.fillColor);
+    rimLight.intensity = ctx.rimIntensity;
+    rimLight.color.copy(ctx.rimColor);
+    renderer.toneMappingExposure = ctx.exposure;
+  }
+
+  // --- Curtain wipe setup ---
+  const rtA = new THREE.WebGLRenderTarget(window.innerWidth, window.innerHeight, {
+    type: THREE.HalfFloatType,
+  });
+  const rtB = new THREE.WebGLRenderTarget(window.innerWidth, window.innerHeight, {
+    type: THREE.HalfFloatType,
+  });
+
+  const wipeMaterial = new THREE.ShaderMaterial({
+    uniforms: {
+      tA: { value: null },
+      tB: { value: null },
+      progress: { value: 0 },
+    },
+    vertexShader: `
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      uniform sampler2D tA;
+      uniform sampler2D tB;
+      uniform float progress;
+      varying vec2 vUv;
+      void main() {
+        // Top-to-bottom mask: new context (tB) on top, old (tA) on bottom
+        float y = 1.0 - vUv.y; // 0 at top, 1 at bottom
+        float mask = step(y, progress);
+        gl_FragColor = mix(texture2D(tA, vUv), texture2D(tB, vUv), mask);
+      }
+    `,
+    depthTest: false,
+    depthWrite: false,
+  });
+
+  const wipeQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), wipeMaterial);
+  const wipeScene = new THREE.Scene();
+  wipeScene.add(wipeQuad);
+  const wipeCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+
+  // Scroll-driven curtain: wipeProgress is directly tied to scroll
+  // Scrolling one full "page" (400px of deltaY) = one full context transition
+  const SCROLL_PER_CONTEXT = 400;
+  // scrollPosition tracks the continuous position: 0 = start of context 0, 1 = start of context 1, etc.
+  let scrollPosition = 0;
+
+  renderer.domElement.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const delta = e.deltaY / SCROLL_PER_CONTEXT;
+    scrollPosition = Math.max(0, Math.min(contexts.length - 1, scrollPosition + delta));
+  }, { passive: false });
+
+  // Generate dot indicators dynamically
+  const dotsEl = document.getElementById('context-dots');
+  if (dotsEl) {
+    contexts.forEach((ctx, i) => {
+      const dot = document.createElement('button');
+      dot.className = 'dot' + (i === 0 ? ' active' : '');
+      dot.setAttribute('aria-label', ctx.name);
+      dot.addEventListener('click', () => { scrollPosition = i; });
+      dotsEl.appendChild(dot);
+    });
+  }
+
+  function updateDots(activeIdx) {
+    if (!dotsEl) return;
+    const dots = dotsEl.children;
+    for (let i = 0; i < dots.length; i++) {
+      dots[i].classList.toggle('active', i === activeIdx);
+    }
+    const label = document.getElementById('context-label');
+    if (label) label.textContent = contexts[activeIdx].name;
+  }
+
+  // Update wipe render targets on resize
+  window.addEventListener('resize', () => {
+    rtA.setSize(window.innerWidth, window.innerHeight);
+    rtB.setSize(window.innerWidth, window.innerHeight);
   });
 
   // --- Fade out loader ---
@@ -317,8 +935,36 @@ async function init() {
   // --- Render loop ---
   function animate() {
     requestAnimationFrame(animate);
-    controls.update();
-    composer.render();
+    updateCamera();
+    updateExplode();
+
+    const fromIdx = Math.floor(scrollPosition);
+    const toIdx = Math.min(fromIdx + 1, contexts.length - 1);
+    const t = scrollPosition - fromIdx; // 0–1 fractional between two contexts
+
+    // Update dots to show nearest context
+    updateDots(Math.round(scrollPosition));
+
+    if (t > 0.001 && fromIdx !== toIdx) {
+      // Mid-transition: render both contexts, composite with curtain
+      applyContextNow(contexts[fromIdx]);
+      renderer.setRenderTarget(rtA);
+      renderer.render(scene, camera);
+
+      applyContextNow(contexts[toIdx]);
+      renderer.setRenderTarget(rtB);
+      renderer.render(scene, camera);
+
+      wipeMaterial.uniforms.tA.value = rtA.texture;
+      wipeMaterial.uniforms.tB.value = rtB.texture;
+      wipeMaterial.uniforms.progress.value = t;
+      renderer.setRenderTarget(null);
+      renderer.render(wipeScene, wipeCamera);
+    } else {
+      // Settled on a context — use full post-processing
+      applyContextNow(contexts[fromIdx]);
+      composer.render();
+    }
   }
   animate();
 }

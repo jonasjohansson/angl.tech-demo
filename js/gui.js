@@ -30,16 +30,14 @@ function updateMaterials(model, params) {
 }
 
 export function createGUI(ctx) {
-  const { renderer, scene, camera, controls, model, lights, groundPlane, grid, bloomPass, smaaPass, ssaoPass, loadModel } = ctx;
+  const { renderer, scene, camera, model, lights, groundPlane, grid, bloomPass, smaaPass, ssaoPass, loadModel, setView, switchCamera, viewNames } = ctx;
 
   let currentModel = model;
   const gui = new GUI({ title: 'ANGL Viewer' });
 
   const settings = {
     model: 'full',
-    autoRotate: defaults.camera.autoRotate,
     wireframe: false,
-    grid: defaults.scene.showGrid,
     ground: defaults.ground.visible,
     roughness: defaults.material.roughness,
     metalness: defaults.material.metalness,
@@ -67,11 +65,9 @@ export function createGUI(ctx) {
   display.add(settings, 'model', ['optimized', 'full']).name('Model quality').onChange(async (v) => {
     currentModel = await loadModel(v);
   });
-  display.add(settings, 'autoRotate').onChange(v => { controls.autoRotate = v; });
   display.add(settings, 'wireframe').onChange(v => {
     currentModel.traverse(c => { if (c.isMesh) c.material.wireframe = v; });
   });
-  display.add(settings, 'grid').onChange(v => { grid.visible = v; });
   display.add(settings, 'ground').onChange(v => { groundPlane.visible = v; });
 
   // --- Material ---
@@ -116,11 +112,25 @@ export function createGUI(ctx) {
   post.add(settings, 'bloomThreshold', 0, 1.5, 0.01).onChange(v => { bloomPass.threshold = v; });
   post.add(settings, 'smaa').name('SMAA').onChange(v => { smaaPass.enabled = v; });
 
+  // --- Camera ---
+  const cam = gui.addFolder('Camera');
+  const camSettings = {
+    projection: 'Orthographic',
+    view: 'Front',
+  };
+  cam.add(camSettings, 'projection', ['Perspective', 'Orthographic']).name('Projection').onChange(v => {
+    switchCamera(v);
+  });
+  cam.add(camSettings, 'view', viewNames).name('View').onChange(v => {
+    setView(v);
+  });
+
   // Close folders by default for compact look
   display.close();
   mat.close();
   light.close();
   post.close();
+  cam.close();
 
   return gui;
 }
