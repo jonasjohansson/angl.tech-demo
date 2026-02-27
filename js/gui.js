@@ -188,7 +188,7 @@ export function createGUI(ctx) {
   // --- Transitions ---
   if (wipeDirections && setWipeDirection) {
     const trans = gui.addFolder('Transitions');
-    const transSettings = { wipe: 'Top → Down' };
+    const transSettings = { wipe: 'Right → Left' };
     trans.add(transSettings, 'wipe', Object.keys(wipeDirections)).name('Wipe direction').onChange(v => {
       setWipeDirection(wipeDirections[v]);
     });

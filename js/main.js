@@ -103,14 +103,15 @@ async function init() {
   keyLight.castShadow = shadowDefaults.enabled;
   keyLight.shadow.mapSize.width = shadowDefaults.mapSize;
   keyLight.shadow.mapSize.height = shadowDefaults.mapSize;
-  keyLight.shadow.camera.near = 0.1;
-  keyLight.shadow.camera.far = 20;
-  keyLight.shadow.camera.left = -3;
-  keyLight.shadow.camera.right = 3;
-  keyLight.shadow.camera.top = 3;
-  keyLight.shadow.camera.bottom = -3;
-  keyLight.shadow.bias = -0.0005;
-  keyLight.shadow.normalBias = 0.02;
+  keyLight.shadow.camera.near = 0.5;
+  keyLight.shadow.camera.far = 12;
+  keyLight.shadow.camera.left = -1.5;
+  keyLight.shadow.camera.right = 1.5;
+  keyLight.shadow.camera.top = 2;
+  keyLight.shadow.camera.bottom = -1;
+  keyLight.shadow.bias = -0.0003;
+  keyLight.shadow.normalBias = 0.04;
+  keyLight.shadow.radius = 3;
   scene.add(keyLight);
 
   // Fill light — cool-toned, softer
@@ -1347,7 +1348,7 @@ async function init() {
   });
 
   // Wipe direction modes
-  let wipeDirection = 0;
+  let wipeDirection = 3; // Right → Left
 
   const wipeMaterial = new THREE.ShaderMaterial({
     uniforms: {
