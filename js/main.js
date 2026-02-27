@@ -763,9 +763,11 @@ async function init() {
     perspCamera.fov = frustumSize * (40 / FRUSTUM_DEFAULT);
     perspCamera.updateProjectionMatrix();
 
-    camera.position.x = orbitTarget.x + orbitRadius * Math.sin(currentAzimuth) * Math.cos(currentElevation);
-    camera.position.y = orbitTarget.y + orbitRadius * Math.sin(currentElevation);
-    camera.position.z = orbitTarget.z + orbitRadius * Math.cos(currentAzimuth) * Math.cos(currentElevation);
+    const az = currentAzimuth + swayAzOffset;
+    const el = currentElevation + swayElOffset;
+    camera.position.x = orbitTarget.x + orbitRadius * Math.sin(az) * Math.cos(el);
+    camera.position.y = orbitTarget.y + orbitRadius * Math.sin(el);
+    camera.position.z = orbitTarget.z + orbitRadius * Math.cos(az) * Math.cos(el);
 
     camera.lookAt(orbitTarget);
   }
@@ -1066,6 +1068,8 @@ async function init() {
   const swayAzimuth = swayDefaults.azimuthAmount;
   const swayElevation = swayDefaults.elevationAmount;
   const swaySpeed = swayDefaults.speed;
+  let swayAzOffset = 0;
+  let swayElOffset = 0;
 
   // --- GUI ---
   const wipeDirections = {
@@ -1351,9 +1355,6 @@ async function init() {
       tB: { value: null },
       progress: { value: 0 },
       direction: { value: 0 },
-      uMotionBlur: { value: 1 },
-      uBlurStrength: { value: 0.015 },
-      uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
     },
     vertexShader: `
       varying vec2 vUv;
@@ -1367,46 +1368,19 @@ async function init() {
       uniform sampler2D tB;
       uniform float progress;
       uniform int direction;
-      uniform float uMotionBlur;
-      uniform float uBlurStrength;
-      uniform vec2 uResolution;
       varying vec2 vUv;
-
-      // Directional blur along wipe edge
-      vec4 blurSample(sampler2D tex, vec2 uv, vec2 blurDir, float strength) {
-        vec4 col = vec4(0.0);
-        float total = 0.0;
-        for (int i = -4; i <= 4; i++) {
-          float w = 1.0 - abs(float(i)) / 4.5;
-          col += texture2D(tex, uv + blurDir * float(i) * strength) * w;
-          total += w;
-        }
-        return col / total;
-      }
-
       void main() {
         float t;
-        vec2 blurDir;
-        if (direction == 0)      { t = 1.0 - vUv.y;                          blurDir = vec2(0.0, 1.0); }
-        else if (direction == 1) { t = vUv.y;                                 blurDir = vec2(0.0, 1.0); }
-        else if (direction == 2) { t = vUv.x;                                 blurDir = vec2(1.0, 0.0); }
-        else if (direction == 3) { t = 1.0 - vUv.x;                          blurDir = vec2(1.0, 0.0); }
-        else if (direction == 4) { t = (vUv.x + 1.0 - vUv.y) / 2.0;         blurDir = normalize(vec2(1.0, -1.0)); }
-        else if (direction == 5) { t = (1.0 - vUv.x + 1.0 - vUv.y) / 2.0;   blurDir = normalize(vec2(-1.0, -1.0)); }
-        else if (direction == 6) { t = (vUv.x * 0.5 + (1.0 - vUv.y)) / 1.5; blurDir = normalize(vec2(0.5, -1.0)); }
-        else                     { t = ((1.0 - vUv.x) * 0.5 + vUv.y) / 1.5; blurDir = normalize(vec2(-0.5, 1.0)); }
-
+        if (direction == 0)      t = 1.0 - vUv.y;                          // top → down
+        else if (direction == 1) t = vUv.y;                                 // bottom → up
+        else if (direction == 2) t = vUv.x;                                 // left → right
+        else if (direction == 3) t = 1.0 - vUv.x;                          // right → left
+        else if (direction == 4) t = (vUv.x + 1.0 - vUv.y) / 2.0;         // diagonal 45° TL → BR
+        else if (direction == 5) t = (1.0 - vUv.x + 1.0 - vUv.y) / 2.0;   // diagonal 45° TR → BL
+        else if (direction == 6) t = (vUv.x * 0.5 + (1.0 - vUv.y)) / 1.5; // iso: steep from TR corner
+        else                     t = ((1.0 - vUv.x) * 0.5 + vUv.y) / 1.5; // iso reverse: from BL corner
         float mask = step(t, progress);
-
-        // Motion blur strength peaks at the wipe edge
-        float edgeDist = abs(t - progress);
-        float blurMask = (1.0 - smoothstep(0.0, 0.15, edgeDist)) * uMotionBlur;
-        float strength = blurMask * uBlurStrength;
-
-        vec4 colA = strength > 0.001 ? blurSample(tA, vUv, blurDir, strength) : texture2D(tA, vUv);
-        vec4 colB = strength > 0.001 ? blurSample(tB, vUv, blurDir, strength) : texture2D(tB, vUv);
-
-        gl_FragColor = mix(colA, colB, mask);
+        gl_FragColor = mix(texture2D(tA, vUv), texture2D(tB, vUv), mask);
       }
     `,
     depthTest: false,
@@ -1456,7 +1430,6 @@ async function init() {
   window.addEventListener('resize', () => {
     rtA.setSize(window.innerWidth, window.innerHeight);
     rtB.setSize(window.innerWidth, window.innerHeight);
-    wipeMaterial.uniforms.uResolution.value.set(window.innerWidth, window.innerHeight);
     flarePass.uniforms.uResolution.value.set(window.innerWidth, window.innerHeight);
   });
 
@@ -1467,19 +1440,21 @@ async function init() {
   // --- Render loop ---
   function animate() {
     requestAnimationFrame(animate);
-    updateCamera();
-    updateExplode();
-    updateHotspotPositions();
     const now = performance.now() * 0.001;
     filmPass.uniforms.uTime.value = now;
 
-    // Idle camera sway — gentle handheld feel
+    // Idle camera sway — gentle handheld feel (non-accumulating orbit offset)
     if (swayEnabled) {
-      const azDrift = Math.sin(now * swaySpeed) * swayAzimuth;
-      const elDrift = Math.sin(now * swaySpeed * 0.7 + 1.0) * swayElevation;
-      camera.position.x += azDrift;
-      camera.position.y += elDrift;
+      swayAzOffset = Math.sin(now * swaySpeed) * swayAzimuth;
+      swayElOffset = Math.sin(now * swaySpeed * 0.7 + 1.0) * swayElevation;
+    } else {
+      swayAzOffset = 0;
+      swayElOffset = 0;
     }
+
+    updateCamera();
+    updateExplode();
+    updateHotspotPositions();
 
     const fromIdx = Math.floor(scrollPosition);
     const toIdx = Math.min(fromIdx + 1, contexts.length - 1);
