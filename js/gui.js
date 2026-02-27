@@ -30,7 +30,7 @@ function updateMaterials(model, params) {
 }
 
 export function createGUI(ctx) {
-  const { renderer, scene, camera, model, lights, groundPlane, grid, bloomPass, smaaPass, ssaoPass, loadModel, setView, switchCamera, viewNames } = ctx;
+  const { renderer, scene, camera, model, lights, groundPlane, grid, bloomPass, smaaPass, ssaoPass, loadModel, setView, switchCamera, viewNames, wipeDirections, setWipeDirection } = ctx;
 
   let currentModel = model;
   const gui = new GUI({ title: 'ANGL Viewer' });
@@ -50,14 +50,14 @@ export function createGUI(ctx) {
     directIntensity: defaults.lighting.keyIntensity,
     fillIntensity: defaults.lighting.fillIntensity,
     rimIntensity: defaults.lighting.rimIntensity,
-    bloom: defaults.postprocessing.bloom,
-    bloomStrength: defaults.postprocessing.bloomStrength,
-    bloomRadius: defaults.postprocessing.bloomRadius,
-    bloomThreshold: defaults.postprocessing.bloomThreshold,
-    smaa: defaults.postprocessing.smaa,
-    ssao: false,
-    ssaoIntensity: 1.0,
-    ssaoRadius: 0.3,
+    bloom: bloomPass.enabled,
+    bloomStrength: bloomPass.strength,
+    bloomRadius: bloomPass.radius,
+    bloomThreshold: bloomPass.threshold,
+    smaa: smaaPass.enabled,
+    ssao: ssaoPass.enabled,
+    ssaoIntensity: ssaoPass.intensity,
+    ssaoRadius: ssaoPass.kernelRadius,
   };
 
   // --- Display ---
@@ -111,6 +111,16 @@ export function createGUI(ctx) {
   post.add(settings, 'bloomRadius', 0, 1, 0.01).onChange(v => { bloomPass.radius = v; });
   post.add(settings, 'bloomThreshold', 0, 1.5, 0.01).onChange(v => { bloomPass.threshold = v; });
   post.add(settings, 'smaa').name('SMAA').onChange(v => { smaaPass.enabled = v; });
+
+  // --- Transitions ---
+  if (wipeDirections && setWipeDirection) {
+    const trans = gui.addFolder('Transitions');
+    const transSettings = { wipe: 'Top → Down' };
+    trans.add(transSettings, 'wipe', Object.keys(wipeDirections)).name('Wipe direction').onChange(v => {
+      setWipeDirection(wipeDirections[v]);
+    });
+    trans.close();
+  }
 
   // --- Camera ---
   const cam = gui.addFolder('Camera');

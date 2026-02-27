@@ -712,7 +712,6 @@ async function init() {
   const orbitTarget = defaultOrbitTarget.clone();
   let targetOrbitY = defaultOrbitTarget.y;
   const orbitRadius = 2.5;
-  const elevation = 0.15;
 
   let currentAzimuth = 0;
   let targetAzimuth = 0;
@@ -726,6 +725,7 @@ async function init() {
 
   function updateCamera() {
     currentAzimuth += (targetAzimuth - currentAzimuth) * 0.1;
+    currentElevation += (targetElevation - currentElevation) * 0.08;
 
     // Smooth zoom interpolation
     frustumSize += (targetFrustum - frustumSize) * 0.08;
@@ -740,23 +740,30 @@ async function init() {
     perspCamera.fov = frustumSize * (40 / FRUSTUM_DEFAULT);
     perspCamera.updateProjectionMatrix();
 
-    camera.position.x = orbitTarget.x + orbitRadius * Math.sin(currentAzimuth) * Math.cos(elevation);
-    camera.position.y = orbitTarget.y + orbitRadius * Math.sin(elevation);
-    camera.position.z = orbitTarget.z + orbitRadius * Math.cos(currentAzimuth) * Math.cos(elevation);
+    camera.position.x = orbitTarget.x + orbitRadius * Math.sin(currentAzimuth) * Math.cos(currentElevation);
+    camera.position.y = orbitTarget.y + orbitRadius * Math.sin(currentElevation);
+    camera.position.z = orbitTarget.z + orbitRadius * Math.cos(currentAzimuth) * Math.cos(currentElevation);
 
     camera.lookAt(orbitTarget);
   }
 
   // --- View presets ---
-  const viewList = ['Front', 'Right', 'Rear', 'Left'];
+  const viewList = ['Front', 'Right', 'Rear', 'Left', 'Isometric'];
   // ~60° instead of 90° so the wall stays visible from side views
-  const viewAngles = { Front: 0, Right: -Math.PI / 3, Rear: Math.PI, Left: Math.PI / 3 };
+  const viewAngles = { Front: 0, Right: -Math.PI / 3, Rear: Math.PI, Left: Math.PI / 3, Isometric: Math.PI / 4 };
   let viewIndex = 0;
+
+  // Isometric uses a higher elevation; track target elevation for smooth lerp
+  const ISO_ELEVATION = 0.55;
+  const DEFAULT_ELEVATION = 0.15;
+  let currentElevation = DEFAULT_ELEVATION;
+  let targetElevation = DEFAULT_ELEVATION;
 
   function setView(name) {
     const a = viewAngles[name];
     if (a !== undefined) {
       targetAzimuth = a;
+      targetElevation = name === 'Isometric' ? ISO_ELEVATION : DEFAULT_ELEVATION;
       viewIndex = viewList.indexOf(name);
     }
   }
@@ -854,12 +861,19 @@ async function init() {
   });
 
   // --- GUI ---
+  const wipeDirections = {
+    'Top → Down': 0, 'Bottom → Up': 1,
+    'Left → Right': 2, 'Right → Left': 3,
+    'Diagonal ↘': 4, 'Diagonal ↙': 5,
+  };
   createGUI({
     renderer, scene, camera, model,
     lights: { ambient, keyLight, fillLight, rimLight, bounceLight },
     groundPlane, grid, bloomPass, smaaPass, ssaoPass,
     loadModel, setView, switchCamera,
     viewNames: viewList,
+    wipeDirections,
+    setWipeDirection: (v) => { wipeDirection = v; },
   });
 
   // --- Aesthetic contexts (scroll to switch) ---
@@ -1112,11 +1126,15 @@ async function init() {
     type: THREE.HalfFloatType,
   });
 
+  // Wipe direction: 0=top-down, 1=bottom-up, 2=left-right, 3=right-left, 4=diagonal TL-BR, 5=diagonal TR-BL
+  let wipeDirection = 0;
+
   const wipeMaterial = new THREE.ShaderMaterial({
     uniforms: {
       tA: { value: null },
       tB: { value: null },
       progress: { value: 0 },
+      direction: { value: 0 },
     },
     vertexShader: `
       varying vec2 vUv;
@@ -1129,11 +1147,17 @@ async function init() {
       uniform sampler2D tA;
       uniform sampler2D tB;
       uniform float progress;
+      uniform int direction;
       varying vec2 vUv;
       void main() {
-        // Top-to-bottom mask: new context (tB) on top, old (tA) on bottom
-        float y = 1.0 - vUv.y; // 0 at top, 1 at bottom
-        float mask = step(y, progress);
+        float t;
+        if (direction == 0)      t = 1.0 - vUv.y;                   // top → down
+        else if (direction == 1) t = vUv.y;                          // bottom → up
+        else if (direction == 2) t = vUv.x;                          // left → right
+        else if (direction == 3) t = 1.0 - vUv.x;                   // right → left
+        else if (direction == 4) t = (vUv.x + 1.0 - vUv.y) / 2.0;  // diagonal TL → BR
+        else                     t = (1.0 - vUv.x + 1.0 - vUv.y) / 2.0; // diagonal TR → BL
+        float mask = step(t, progress);
         gl_FragColor = mix(texture2D(tA, vUv), texture2D(tB, vUv), mask);
       }
     `,
@@ -1217,6 +1241,7 @@ async function init() {
       wipeMaterial.uniforms.tA.value = rtA.texture;
       wipeMaterial.uniforms.tB.value = rtB.texture;
       wipeMaterial.uniforms.progress.value = t;
+      wipeMaterial.uniforms.direction.value = wipeDirection;
       renderer.setRenderTarget(null);
       renderer.render(wipeScene, wipeCamera);
     } else {
