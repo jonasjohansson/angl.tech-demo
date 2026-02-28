@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>ANGL — Render to PNG</title>
+  <style>
+    body { margin: 0; background: #1a1a1a; color: #fff; font-family: system-ui; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
+    canvas { border: 1px solid #333; background: repeating-conic-gradient(#808080 0% 25%, transparent 0% 50%) 50% / 20px 20px; }
+    .controls { margin: 20px; display: flex; gap: 12px; align-items: center; }
+    button { padding: 8px 20px; background: #4a9eff; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; }
+    button:hover { background: #3a8eef; }
+    label { font-size: 14px; }
+    select, input { padding: 4px 8px; border-radius: 4px; border: 1px solid #555; background: #2a2a2a; color: #fff; }
+    .status { font-size: 13px; color: #aaa; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <h2>ANGL PC — Transparent PNG Render</h2>
+  <div class="controls">
+    <label>Size:
+      <select id="size">
+        <option value="1024">1024 × 1024</option>
+        <option value="1536">1536 × 1536</option>
+        <option value="2048" selected>2048 × 2048</option>
+      </select>
+    </label>
+    <label>View:
+      <select id="view">
+        <option value="front" selected>Front</option>
+        <option value="front-left">Front-Left 3/4</option>
+        <option value="front-right">Front-Right 3/4</option>
+        <option value="side">Side</option>
+      </select>
+    </label>
+    <button id="render-btn">Render & Download PNG</button>
+  </div>
+  <canvas id="c"></canvas>
+  <div class="status" id="status">Loading model...</div>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://esm.sh/three@0.171.0",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"
+    }
+  }
+  </script>
+  <script type="module">
+    import * as THREE from 'three';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    const canvas = document.getElementById('c');
+    const status = document.getElementById('status');
+    const sizeSelect = document.getElementById('size');
+    const viewSelect = document.getElementById('view');
+
+    // Renderer with alpha
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: true });
+    renderer.setPixelRatio(1); // Fixed 1:1 for clean export
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.2;
+    renderer.setClearColor(0x000000, 0); // Transparent
+
+    const scene = new THREE.Scene();
+    // No background — transparent
+
+    // Camera
+    const camera = new THREE.PerspectiveCamera(35, 1, 0.01, 100);
+
+    // Controls for manual adjustment
+    const controls = new OrbitControls(camera, canvas);
+    controls.enableDamping = true;
+
+    // Lighting — soft studio setup
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+    scene.add(ambientLight);
+
+    const keyLight = new THREE.DirectionalLight(0xffffff, 1.2);
+    keyLight.position.set(2, 3, 4);
+    scene.add(keyLight);
+
+    const fillLight = new THREE.DirectionalLight(0xddeeff, 0.6);
+    fillLight.position.set(-3, 1, 2);
+    scene.add(fillLight);
+
+    const rimLight = new THREE.DirectionalLight(0xffeedd, 0.4);
+    rimLight.position.set(0, 2, -3);
+    scene.add(rimLight);
+
+    // Load model
+    const dracoLoader = new DRACOLoader();
+    dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
+    const loader = new GLTFLoader();
+    loader.setDRACOLoader(dracoLoader);
+
+    let model;
+
+    loader.load('./models/ANGL-ASM-MAIN_REV-G_FULL_optimized.glb', (gltf) => {
+      model = gltf.scene;
+      scene.add(model);
+
+      // Center and scale
+      const box = new THREE.Box3().setFromObject(model);
+      const center = box.getCenter(new THREE.Vector3());
+      const size = box.getSize(new THREE.Vector3());
+      model.position.sub(center);
+
+      const maxDim = Math.max(size.x, size.y, size.z);
+      controls.target.set(0, 0, 0);
+
+      setCameraView('front', maxDim);
+      updateCanvasSize();
+
+      status.textContent = 'Model loaded. Adjust view with mouse, then click Render.';
+    }, (progress) => {
+      if (progress.total) {
+        status.textContent = `Loading... ${Math.round(progress.loaded / progress.total * 100)}%`;
+      }
+    }, (err) => {
+      status.textContent = `Error: ${err.message}`;
+    });
+
+    function setCameraView(view, maxDim) {
+      const dist = maxDim * 1.8;
+      const h = maxDim * 0.1; // Slightly above center
+      switch (view) {
+        case 'front':
+          camera.position.set(0, h, dist);
+          break;
+        case 'front-left':
+          camera.position.set(-dist * 0.7, h, dist * 0.7);
+          break;
+        case 'front-right':
+          camera.position.set(dist * 0.7, h, dist * 0.7);
+          break;
+        case 'side':
+          camera.position.set(dist, h, 0);
+          break;
+      }
+      controls.update();
+    }
+
+    viewSelect.addEventListener('change', () => {
+      if (model) {
+        const box = new THREE.Box3().setFromObject(model);
+        const size = box.getSize(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z);
+        setCameraView(viewSelect.value, maxDim);
+      }
+    });
+
+    function updateCanvasSize() {
+      const s = parseInt(sizeSelect.value);
+      renderer.setSize(s, s);
+      camera.aspect = 1;
+      camera.updateProjectionMatrix();
+    }
+    sizeSelect.addEventListener('change', updateCanvasSize);
+
+    // Animation loop
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    // Render & download
+    document.getElementById('render-btn').addEventListener('click', () => {
+      renderer.render(scene, camera);
+      const link = document.createElement('a');
+      link.download = `angl-pc-${viewSelect.value}-${sizeSelect.value}px.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+      status.textContent = `Saved: ${link.download}`;
+    });
+  </script>
+</body>
+</html>
