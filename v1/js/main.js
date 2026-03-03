@@ -237,8 +237,8 @@ async function init() {
 
   // --- Model loader ---
   const MODEL_PATHS = {
-    optimized: './models/ANGL-ASM-MAIN_REV-G_FULL_optimized.glb',
-    full: './models/ANGL-ASM-MAIN_REV-G_FULL.glb',
+    optimized: '../models/ANGL-ASM-MAIN_REV-G_FULL_optimized.glb',
+    full: '../models/ANGL-ASM-MAIN_REV-G_FULL.glb',
   };
 
   let currentModel = null;

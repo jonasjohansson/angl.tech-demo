@@ -30,7 +30,7 @@ function updateMaterials(model, params) {
 }
 
 export function createGUI(ctx) {
-  const { renderer, scene, camera, model, lights, groundPlane, grid, bloomPass, smaaPass, ssaoPass, bokehPass, filmPass, flarePass, toggleMap, loadModel, setView, switchCamera, viewNames, wipeDirections, setWipeDirection, sway, voxelViz } = ctx;
+  const { renderer, scene, camera, model, lights, groundPlane, bloomPass, smaaPass, ssaoPass, bokehPass, filmPass, flarePass, loadModel, setView, switchCamera, viewNames, sway, voxelViz } = ctx;
 
   let currentModel = model;
   const gui = new GUI({ title: 'ANGL Viewer' });
@@ -38,7 +38,7 @@ export function createGUI(ctx) {
   const settings = {
     model: 'full',
     wireframe: false,
-    voxelGrid: false,
+    voxelGrid: true,
     ground: defaults.ground.visible,
     roughness: defaults.material.roughness,
     metalness: defaults.material.metalness,
@@ -56,37 +56,31 @@ export function createGUI(ctx) {
     bloomRadius: bloomPass.radius,
     bloomThreshold: bloomPass.threshold,
     smaa: smaaPass.enabled,
-    ssao: ssaoPass.enabled,
+    ssao: false,
     ssaoIntensity: ssaoPass.intensity,
     ssaoRadius: ssaoPass.kernelRadius,
-    // DoF
     dof: bokehPass.enabled,
     dofFocus: bokehPass.uniforms.focus.value,
     dofAperture: bokehPass.uniforms.aperture.value,
     dofMaxBlur: bokehPass.uniforms.maxblur.value,
-    // Contact shadows
     contactShadows: renderer.shadowMap.enabled,
-    // Film effects
     vignette: filmPass.uniforms.uVignette.value > 0.5,
     vignetteAmount: filmPass.uniforms.uVignetteAmount.value,
     grain: filmPass.uniforms.uGrain.value > 0.5,
     grainAmount: filmPass.uniforms.uGrainAmount.value,
     chromaticAberration: filmPass.uniforms.uCA.value > 0.5,
     chromaticAberrationAmount: filmPass.uniforms.uCAAmount.value,
-    // Color grading
     colorGrading: filmPass.uniforms.uColorGrading.value > 0.5,
     midSaturation: filmPass.uniforms.uMidSaturation.value,
     shadowWarmth: filmPass.uniforms.uShadowWarmth.value,
     highlightWarmth: filmPass.uniforms.uHighlightWarmth.value,
-    // Lens distortion
     lensDistortion: filmPass.uniforms.uLensDistortion.value > 0.5,
     lensDistortionAmount: filmPass.uniforms.uLensDistortionAmount.value,
-    // Anamorphic flare
     anamorphicFlare: flarePass.uniforms.uEnabled.value > 0.5,
     flareThreshold: flarePass.uniforms.uThreshold.value,
     flareStrength: flarePass.uniforms.uStrength.value,
-    // Camera sway
     cameraSway: sway.enabled,
+    background: '#c8c3bc',
   };
 
   // --- Display ---
@@ -99,6 +93,9 @@ export function createGUI(ctx) {
   });
   display.add(settings, 'ground').onChange(v => { groundPlane.visible = v; });
   display.add(settings, 'voxelGrid').name('Voxel grid').onChange(v => { voxelViz.enabled = v; });
+  display.addColor(settings, 'background').name('Background').onChange(v => {
+    scene.background.set(v);
+  });
 
   // --- Material ---
   const mat = gui.addFolder('Material');
@@ -106,33 +103,6 @@ export function createGUI(ctx) {
   mat.add(settings, 'metalness', 0, 1, 0.01).onChange(() => { updateMaterials(currentModel, settings); });
   mat.add(settings, 'clearcoat', 0, 1, 0.01).onChange(() => { updateMaterials(currentModel, settings); });
   mat.add(settings, 'clearcoatRoughness', 0, 1, 0.01).onChange(() => { updateMaterials(currentModel, settings); });
-
-  // Case panel color (Solid2.002–029 group members only)
-  if (toggleMap && toggleMap.groupMembers.length > 0) {
-    const panels = toggleMap.groupMembers;
-    const panelSettings = { panelColor: '#c1a085' };
-    // Apply default color immediately
-    const defaultCol = new THREE.Color(panelSettings.panelColor);
-    panels.forEach((obj) => {
-      obj.traverse((c) => {
-        if (c.isMesh && c.material) {
-          c.material.color.copy(defaultCol);
-          c.material.needsUpdate = true;
-        }
-      });
-    });
-    mat.addColor(panelSettings, 'panelColor').name('Panel color').onChange(v => {
-      const col = new THREE.Color(v);
-      panels.forEach((obj) => {
-        obj.traverse((c) => {
-          if (c.isMesh && c.material) {
-            c.material.color.copy(col);
-            c.material.needsUpdate = true;
-          }
-        });
-      });
-    });
-  }
 
   // --- Lighting ---
   const light = gui.addFolder('Lighting');
@@ -214,16 +184,6 @@ export function createGUI(ctx) {
   // --- Camera Sway ---
   post.add(settings, 'cameraSway').name('Camera sway').onChange(v => { sway.enabled = v; });
 
-  // --- Transitions ---
-  if (wipeDirections && setWipeDirection) {
-    const trans = gui.addFolder('Transitions');
-    const transSettings = { wipe: 'Right → Left' };
-    trans.add(transSettings, 'wipe', Object.keys(wipeDirections)).name('Wipe direction').onChange(v => {
-      setWipeDirection(wipeDirections[v]);
-    });
-    trans.close();
-  }
-
   // --- Camera ---
   const cam = gui.addFolder('Camera');
   const camSettings = {
@@ -237,7 +197,7 @@ export function createGUI(ctx) {
     setView(v);
   });
 
-  // Close folders by default for compact look
+  // Close folders by default
   display.close();
   mat.close();
   light.close();
