@@ -1,0 +1,147 @@
+// Default parameters — single source of truth for all tweakable values
+export const defaults = {
+  scene: {
+    background: '#000000',
+    showGrid: true,
+  },
+  lighting: {
+    ambientIntensity: 0.1,
+    ambientColor: '#ffffff',
+    keyIntensity: 3.0,
+    keyColor: '#fff0e0',
+    keyPosition: { x: 3, y: 4, z: 2 },
+    fillIntensity: 0.4,
+    fillColor: '#8899bb',
+    fillPosition: { x: -3, y: 2, z: -1 },
+    rimIntensity: 1.8,
+    rimColor: '#ddeeff',
+    rimPosition: { x: -1, y: 3, z: -3 },
+    envIntensity: 1.8,
+  },
+  material: {
+    metalness: 0.5,
+    roughness: 0.0,
+    clearcoat: 1.0,
+    clearcoatRoughness: 1.0,
+  },
+  camera: {
+    fov: 40,
+    autoRotate: false,
+    autoRotateSpeed: 0.5,
+    position: { x: 2, y: 1.5, z: 2 },
+  },
+  postprocessing: {
+    bloom: false,
+    bloomStrength: 0.15,
+    bloomRadius: 0.4,
+    bloomThreshold: 0.85,
+    toneMapping: 'ACESFilmic',
+    exposure: 2.0,
+    smaa: true,
+    // Depth of Field
+    dof: false,
+    dofFocus: 2.5,
+    dofAperture: 0.002,
+    dofMaxBlur: 0.004,
+    // Film effects (ScandinavianFilmShader)
+    vignette: false,
+    vignetteAmount: 0.0,
+    grain: true,
+    grainAmount: 0.015,
+    chromaticAberration: false,
+    chromaticAberrationAmount: 0.0008,
+    colorGrading: false,
+    midSaturation: 0.95,
+    shadowWarmth: 0.04,
+    highlightWarmth: 0.03,
+    // Lens distortion
+    lensDistortion: false,
+    lensDistortionAmount: 0.03,
+    // Anamorphic lens flare
+    anamorphicFlare: false,
+    flareThreshold: 0.85,
+    flareStrength: 0.15,
+    flareSteps: 12,
+  },
+  shadows: {
+    enabled: true,
+    mapSize: 4096,
+  },
+  cameraSway: {
+    enabled: false,
+    azimuthAmount: 0.008,
+    elevationAmount: 0.003,
+    speed: 0.4,
+  },
+  ground: {
+    visible: true,
+    color: '#111111',
+    shadowOpacity: 0.5,
+  },
+};
+
+// Preset configurations
+export const presets = {
+  studio: { ...structuredClone(defaults) },
+  dramatic: {
+    ...structuredClone(defaults),
+    lighting: {
+      ambientIntensity: 0.15,
+      ambientColor: '#1a1a2e',
+      keyIntensity: 2.5,
+      keyColor: '#ffeedd',
+      keyPosition: { x: 4, y: 6, z: 1 },
+      fillIntensity: 0.2,
+      fillColor: '#334466',
+      fillPosition: { x: -4, y: 1, z: -2 },
+      rimIntensity: 1.5,
+      rimColor: '#ff8844',
+      rimPosition: { x: -1, y: 4, z: -5 },
+      envIntensity: 0.2,
+    },
+    material: {
+      metalness: 0.2,
+      roughness: 0.55,
+      clearcoat: 0.1,
+      clearcoatRoughness: 0.3,
+    },
+    postprocessing: {
+      ...structuredClone(defaults.postprocessing),
+      bloomStrength: 0.3,
+      bloomThreshold: 0.7,
+      exposure: 1.2,
+    },
+  },
+  product: {
+    ...structuredClone(defaults),
+    scene: {
+      background: '#0a0a0a',
+      showGrid: false,
+    },
+    lighting: {
+      ambientIntensity: 0.6,
+      ambientColor: '#ffffff',
+      keyIntensity: 1.5,
+      keyColor: '#ffffff',
+      keyPosition: { x: 2, y: 4, z: 3 },
+      fillIntensity: 0.8,
+      fillColor: '#aabbcc',
+      fillPosition: { x: -2, y: 3, z: 1 },
+      rimIntensity: 0.5,
+      rimColor: '#ffffff',
+      rimPosition: { x: 0, y: 2, z: -3 },
+      envIntensity: 0.7,
+    },
+    material: {
+      metalness: 0.2,
+      roughness: 0.5,
+      clearcoat: 0.1,
+      clearcoatRoughness: 0.2,
+    },
+    postprocessing: {
+      ...structuredClone(defaults.postprocessing),
+      bloomStrength: 0.1,
+      exposure: 1.1,
+    },
+  },
+};

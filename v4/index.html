@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ANGL — V4</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <main class="viewer-main">
+      <canvas id="viewer-canvas" class="viewer-canvas"></canvas>
+
+      <div id="loading-overlay" class="loading-overlay">
+        <div class="loading-bar-track">
+          <div id="loading-progress" class="loading-bar-fill"></div>
+        </div>
+        <span id="loading-text" class="loading-text">loading...</span>
+      </div>
+
+      <!-- TE-style typography overlay -->
+      <header class="te-nav">
+        <div class="te-nav-left">
+          <span class="te-brand">angl</span>
+          <span class="te-year">2025</span>
+        </div>
+        <nav class="te-nav-center">
+          <a class="te-nav-item" href="#">products</a>
+          <a class="te-nav-item" href="#">specs</a>
+          <div class="te-wireframe-box"></div>
+          <div class="te-wireframe-box"></div>
+          <a class="te-nav-item" href="#">about</a>
+          <a class="te-nav-item" href="#">support</a>
+        </nav>
+        <div class="te-nav-right">
+          <div class="te-logo-placeholder">
+            <svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1">
+              <rect x="4" y="4" width="32" height="32" rx="2" />
+              <line x1="4" y1="4" x2="36" y2="36" />
+              <line x1="36" y1="4" x2="4" y2="36" />
+            </svg>
+          </div>
+        </div>
+      </header>
+
+      <footer class="te-footer">
+        <div class="te-footer-left">
+          <span class="te-model-line">rev-g</span>
+          <span class="te-model-line">itx form factor</span>
+          <span class="te-model-line">cnc aluminium</span>
+        </div>
+        <div class="te-footer-right">
+          <span class="te-model-line">angl-asm-main</span>
+          <span class="te-model-line">rev-g</span>
+        </div>
+      </footer>
+    </main>
+
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://esm.sh/three@0.171.0",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/",
+        "tweakpane": "https://esm.sh/tweakpane@4.0.5"
+      }
+    }
+    </script>
+    <script type="module" src="./js/main.js"></script>
+  </body>
+</html>
