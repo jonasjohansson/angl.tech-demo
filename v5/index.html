@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ANGL — V5</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <main class="viewer">
+      <!-- 3D perspective scene -->
+      <div class="scene" id="scene">
+        <div class="scene-inner" id="scene-inner"></div>
+      </div>
+
+      <!-- Film overlays -->
+      <div class="grain-overlay"></div>
+      <div class="vignette-overlay"></div>
+
+      <!-- Loading -->
+      <div id="loading-overlay" class="loading-overlay">
+        <div class="loading-bar-track">
+          <div id="loading-progress" class="loading-bar-fill"></div>
+        </div>
+        <span id="loading-text" class="loading-text">loading...</span>
+      </div>
+
+      <!-- TE-style typography overlay -->
+      <header class="te-nav">
+        <div class="te-nav-left">
+          <span class="te-brand">angl</span>
+          <span class="te-year">2025</span>
+        </div>
+        <nav class="te-nav-center">
+          <a class="te-nav-item" href="#">products</a>
+          <a class="te-nav-item" href="#">specs</a>
+          <div class="te-wireframe-box"></div>
+          <div class="te-wireframe-box"></div>
+          <a class="te-nav-item" href="#">about</a>
+          <a class="te-nav-item" href="#">support</a>
+        </nav>
+        <div class="te-nav-right">
+          <div class="te-logo-placeholder">
+            <svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1">
+              <rect x="4" y="4" width="32" height="32" rx="2" />
+              <line x1="4" y1="4" x2="36" y2="36" />
+              <line x1="36" y1="4" x2="4" y2="36" />
+            </svg>
+          </div>
+        </div>
+      </header>
+
+      <!-- View indicator -->
+      <div class="view-indicator" id="view-indicator">
+        <span class="view-label" id="view-label"></span>
+        <div class="view-dots" id="view-dots"></div>
+      </div>
+
+      <footer class="te-footer">
+        <div class="te-footer-left">
+          <span class="te-model-line">rev-g</span>
+          <span class="te-model-line">itx form factor</span>
+          <span class="te-model-line">cnc aluminium</span>
+        </div>
+        <div class="te-footer-right">
+          <span class="te-model-line">angl-asm-main</span>
+          <span class="te-model-line">rev-g full render</span>
+        </div>
+      </footer>
+    </main>
+
+    <script type="module" src="./js/main.js"></script>
+  </body>
+</html>
