@@ -307,6 +307,7 @@ function init() {
 
   function scrollToStop(stopIndex) {
     const scrollMax = document.documentElement.scrollHeight - window.innerHeight;
+    // Each stop corresponds to a major frame: stopIndex * 3 frames
     const frameIndex = stopIndex * 3;
     const progress = frameIndex / (TOTAL_FRAMES - 1);
     const targetScroll = progress * scrollMax;
@@ -318,6 +319,7 @@ function init() {
   function getCurrentStopIndex() {
     const frame = FRAMES[currentFrameIndex];
     if (frame.majorIndex >= 0) return frame.majorIndex;
+    // Find nearest stop
     return Math.round(currentFrameIndex / 3) % STOPS.length;
   }
 
