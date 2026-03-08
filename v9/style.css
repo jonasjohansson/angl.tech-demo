@@ -1,5 +1,20 @@
-/* === Font === */
+/* === Fonts === */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@100;200;300;400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@100;200;300;400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@100;200;300;400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@200;300;400;700;900&display=swap');
+
+@font-face { font-family: 'PP Neue Bit'; src: url('fonts/PPNeueBit-Regular.woff2') format('woff2'), url('fonts/PPNeueBit-Regular.ttf') format('truetype'); font-weight: 400; }
+@font-face { font-family: 'PP Neue Bit'; src: url('fonts/PPNeueBit-Bold.woff2') format('woff2'); font-weight: 700; }
+@font-face { font-family: 'Several Mono'; src: url('fonts/Several-Mono.otf') format('opentype'); font-weight: 400; }
+
+@font-face { font-family: 'Mondwest'; src: url('fonts/Mondwest-Regular.woff2') format('woff2'); font-weight: 400; }
+@font-face { font-family: 'Mondwest'; src: url('fonts/Mondwest-Bold.woff2') format('woff2'); font-weight: 700; }
+@font-face { font-family: 'NeueBit'; src: url('fonts/NeueBit-Regular.woff2') format('woff2'); font-weight: 400; }
+@font-face { font-family: 'NeueBit'; src: url('fonts/NeueBit-Bold.woff2') format('woff2'); font-weight: 700; }
 
 /* === Reset === */
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
@@ -37,7 +52,6 @@ body { overflow-x: hidden; }
   height: 100%;
   object-fit: cover;
   opacity: 0;
-  transition: none;
 }
 .frame-img.active {
   opacity: 1;
@@ -52,17 +66,12 @@ body { overflow-x: hidden; }
   pointer-events: none;
   z-index: 5;
 }
-.callout-svg {
-  mix-blend-mode: difference;
-}
 .callout-svg line {
   stroke: #ffffff;
   stroke-width: 1;
-  opacity: 0.6;
 }
 .callout-svg circle {
   fill: #ffffff;
-  opacity: 0.8;
 }
 
 /* === Hotspot container === */
@@ -77,7 +86,6 @@ body { overflow-x: hidden; }
   position: absolute;
   max-width: 260px;
   opacity: 0;
-  transition: opacity 0.4s ease;
   pointer-events: none;
 }
 .hotspot-panel.visible {
@@ -128,61 +136,21 @@ body { overflow-x: hidden; }
   color: rgba(0,0,0,0.3); letter-spacing: 0.06em; text-transform: lowercase;
 }
 
-/* === Scroll indicator (right side) === */
+/* === Scroll indicator (hidden) === */
 .scroll-indicator {
-  position: fixed;
-  right: 40px;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  pointer-events: none;
+  display: none;
 }
-.scroll-track {
-  width: 1px;
-  height: 200px;
-  background: rgba(0, 0, 0, 0.08);
-  position: relative;
-}
-.scroll-thumb {
-  position: absolute;
-  top: 0;
-  left: -1px;
-  width: 3px;
-  height: 25px;
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 1.5px;
-  transition: top 0.15s ease;
-}
-.stop-dots {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  position: absolute;
-  left: -3px;
-  top: 0;
-  height: 100%;
-}
-.stop-dot {
-  position: absolute;
-  left: 0;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.1);
-  transform: translateX(-2px) translateY(-3.5px);
-  transition: background 0.3s ease, transform 0.3s ease;
-}
-.stop-dot.active {
-  background: rgba(0, 0, 0, 0.35);
-  transform: translateX(-2px) translateY(-3.5px) scale(1.4);
+
+/* === Tweakpane === */
+.tp-dfwv {
+  position: fixed !important;
+  top: 16px !important;
+  right: 16px !important;
+  z-index: 50 !important;
 }
 
 /* === Mobile === */
 @media (max-width: 768px) {
-  .scroll-indicator { right: 20px; }
   .hotspot-panel { max-width: 180px; }
   .hotspot-title { font-size: 15px; }
   .hotspot-desc { font-size: 11px; }

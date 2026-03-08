@@ -1,5 +1,6 @@
 // ─── V9: Image-based product viewer ─────────────────────────────
 // No Three.js — pure DOM image swapping driven by scroll.
+import { Pane } from 'tweakpane';
 
 // ─── Frame grid ─────────────────────────────────────────────────
 const STEP_DEG = 15;
@@ -248,19 +249,14 @@ function init() {
       panel.style.left = `${panelX}px`;
       panel.style.top = `${panelY}px`;
 
-      // Measure title for line target
-      const titleEl = panel.querySelector('.hotspot-title');
-      const titleRect = titleEl ? titleEl.getBoundingClientRect() : null;
-      const titleWidth = titleRect ? titleRect.width : 120;
-      const titleMidY = titleRect ? (titleRect.top + titleRect.bottom) / 2 : panelY + 20;
-
-      // Line connects anchor -> title edge (with small gap)
+      // Measure panel for line target
+      const panelRect = panel.getBoundingClientRect();
       const LINE_GAP = 8;
-      let titleEdgeX;
+      let lineEdgeX;
       if (hotspot.panelSide === 'right') {
-        titleEdgeX = panelX - LINE_GAP;
+        lineEdgeX = panelRect.left - LINE_GAP;
       } else {
-        titleEdgeX = panelX + titleWidth + LINE_GAP;
+        lineEdgeX = panelRect.right + LINE_GAP;
       }
 
       // Anchor dot
@@ -270,23 +266,13 @@ function init() {
       circle.setAttribute('r', 3);
       calloutSvg.appendChild(circle);
 
-      // Horizontal line from anchor to title edge X
+      // Horizontal line from anchor to title edge
       const line1 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
       line1.setAttribute('x1', screen.x);
       line1.setAttribute('y1', screen.y);
-      line1.setAttribute('x2', titleEdgeX);
+      line1.setAttribute('x2', lineEdgeX);
       line1.setAttribute('y2', screen.y);
       calloutSvg.appendChild(line1);
-
-      // Vertical segment to meet the title midpoint
-      if (Math.abs(screen.y - titleMidY) > 2) {
-        const line2 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-        line2.setAttribute('x1', titleEdgeX);
-        line2.setAttribute('y1', screen.y);
-        line2.setAttribute('x2', titleEdgeX);
-        line2.setAttribute('y2', titleMidY);
-        calloutSvg.appendChild(line2);
-      }
     });
   }
 
@@ -314,6 +300,146 @@ function init() {
   window.addEventListener('resize', () => {
     updateHotspots();
   });
+  updateHotspots();
+
+  // ─── Color overlay ────────────────────────────────────────────
+  const colorOverlay = document.createElement('div');
+  colorOverlay.style.cssText = 'position:absolute;inset:0;pointer-events:none;z-index:2;mix-blend-mode:multiply;background:transparent;';
+  frameContainer.appendChild(colorOverlay);
+
+  // ─── Grain canvas ─────────────────────────────────────────────
+  const grainCanvas = document.createElement('canvas');
+  grainCanvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:3;opacity:0;';
+  frameContainer.appendChild(grainCanvas);
+  const grainCtx = grainCanvas.getContext('2d');
+
+  function resizeGrain() {
+    grainCanvas.width = window.innerWidth;
+    grainCanvas.height = window.innerHeight;
+  }
+  resizeGrain();
+  window.addEventListener('resize', resizeGrain);
+
+  function renderGrain() {
+    const w = grainCanvas.width;
+    const h = grainCanvas.height;
+    const imageData = grainCtx.createImageData(w, h);
+    const data = imageData.data;
+    for (let i = 0; i < data.length; i += 4) {
+      const v = Math.random() * 255;
+      data[i] = v;
+      data[i + 1] = v;
+      data[i + 2] = v;
+      data[i + 3] = 255;
+    }
+    grainCtx.putImageData(imageData, 0, 0);
+    requestAnimationFrame(renderGrain);
+  }
+
+  // ─── Font swapper ──────────────────────────────────────────
+  const FONT_OPTIONS = {
+    'Inter': "'Inter', -apple-system, sans-serif",
+    'PP Neue Bit': "'PP Neue Bit', monospace",
+    'Several Mono': "'Several Mono', monospace",
+    'Space Mono': "'Space Mono', monospace",
+    'JetBrains Mono': "'JetBrains Mono', monospace",
+    'IBM Plex Mono': "'IBM Plex Mono', monospace",
+    'Roboto Mono': "'Roboto Mono', monospace",
+    'Fira Code': "'Fira Code', monospace",
+    'Source Code Pro': "'Source Code Pro', monospace",
+    'Mondwest': "'Mondwest', sans-serif",
+    'NeueBit': "'NeueBit', monospace",
+  };
+  const FONT_KEYS = Object.keys(FONT_OPTIONS);
+
+  function applyFont(fontName) {
+    const stack = FONT_OPTIONS[fontName];
+    document.querySelectorAll('.hotspot-label, .hotspot-title, .hotspot-desc, .loading-text').forEach((el) => {
+      el.style.fontFamily = stack;
+    });
+  }
+
+  function applyFontSize(size) {
+    document.querySelectorAll('.hotspot-title, .hotspot-desc').forEach((el) => {
+      el.style.fontSize = `${size}px`;
+    });
+    document.querySelectorAll('.hotspot-label').forEach((el) => {
+      el.style.fontSize = `${Math.round(size * 0.65)}px`;
+    });
+  }
+
+  function applyLineHeight(lh) {
+    document.querySelectorAll('.hotspot-label, .hotspot-title, .hotspot-desc').forEach((el) => {
+      el.style.lineHeight = `${lh}`;
+    });
+  }
+
+  // ─── Tweakpane GUI ────────────────────────────────────────────
+  const PARAMS = {
+    font: 'NeueBit',
+    fontSize: 45,
+    lineHeight: 0.8,
+    brightness: 1.0,
+    contrast: 1.0,
+    saturate: 1.0,
+    exposure: 0,
+    tintColor: '#ffffff',
+    tintOpacity: 0,
+    grain: 0,
+    vignette: 0,
+  };
+
+  function applyFilters() {
+    // Exposure via brightness offset: exposure 0 = brightness 1, exposure 1 = brightness 2
+    const bright = PARAMS.brightness * Math.pow(2, PARAMS.exposure);
+    frameContainer.style.filter = `brightness(${bright}) contrast(${PARAMS.contrast}) saturate(${PARAMS.saturate})`;
+
+    // Tint overlay
+    const r = parseInt(PARAMS.tintColor.slice(1, 3), 16);
+    const g = parseInt(PARAMS.tintColor.slice(3, 5), 16);
+    const b = parseInt(PARAMS.tintColor.slice(5, 7), 16);
+    colorOverlay.style.background = PARAMS.tintOpacity > 0
+      ? `rgba(${r},${g},${b},${PARAMS.tintOpacity})`
+      : 'transparent';
+
+    // Grain
+    grainCanvas.style.opacity = PARAMS.grain;
+
+    // Vignette
+    if (PARAMS.vignette > 0) {
+      frameContainer.style.boxShadow = `inset 0 0 ${100 + PARAMS.vignette * 200}px ${PARAMS.vignette * 80}px rgba(0,0,0,${PARAMS.vignette})`;
+    } else {
+      frameContainer.style.boxShadow = 'none';
+    }
+  }
+
+  const pane = new Pane({ title: 'Settings', expanded: true });
+
+  // Typography
+  const fType = pane.addFolder({ title: 'Typography' });
+  fType.addBinding(PARAMS, 'font', { options: Object.fromEntries(FONT_KEYS.map(k => [k, k])), label: 'font' }).on('change', (ev) => { applyFont(ev.value); });
+  fType.addBinding(PARAMS, 'fontSize', { min: 8, max: 48, step: 1, label: 'size' }).on('change', (ev) => { applyFontSize(ev.value); });
+  fType.addBinding(PARAMS, 'lineHeight', { min: 0.8, max: 2.5, step: 0.05, label: 'line height' }).on('change', (ev) => { applyLineHeight(ev.value); });
+  applyFont(PARAMS.font);
+  applyFontSize(PARAMS.fontSize);
+  applyLineHeight(PARAMS.lineHeight);
+
+  const fImage = pane.addFolder({ title: 'Image' });
+  fImage.addBinding(PARAMS, 'brightness', { min: 0.5, max: 2, step: 0.01 }).on('change', applyFilters);
+  fImage.addBinding(PARAMS, 'contrast', { min: 0.5, max: 2, step: 0.01 }).on('change', applyFilters);
+  fImage.addBinding(PARAMS, 'saturate', { min: 0, max: 2, step: 0.01, label: 'saturation' }).on('change', applyFilters);
+  fImage.addBinding(PARAMS, 'exposure', { min: -2, max: 2, step: 0.01 }).on('change', applyFilters);
+
+  const fColor = pane.addFolder({ title: 'Color Tint' });
+  fColor.addBinding(PARAMS, 'tintColor', { label: 'color' }).on('change', applyFilters);
+  fColor.addBinding(PARAMS, 'tintOpacity', { min: 0, max: 1, step: 0.01, label: 'opacity' }).on('change', applyFilters);
+
+  const fFx = pane.addFolder({ title: 'Effects' });
+  fFx.addBinding(PARAMS, 'grain', { min: 0, max: 0.3, step: 0.005 }).on('change', (ev) => {
+    if (ev.value > 0 && grainCanvas.style.opacity === '0') renderGrain();
+    applyFilters();
+  });
+  fFx.addBinding(PARAMS, 'vignette', { min: 0, max: 1, step: 0.01 }).on('change', applyFilters);
 }
 
 init();
