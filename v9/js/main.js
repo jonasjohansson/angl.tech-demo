@@ -381,12 +381,20 @@ function init() {
     });
   }
 
+  function applyBlendMode(mode) {
+    const container = document.getElementById('hotspot-container');
+    if (container) container.style.mixBlendMode = mode;
+    const svg = document.getElementById('callout-svg');
+    if (svg) svg.style.mixBlendMode = mode;
+  }
+
   // ─── Tweakpane GUI ────────────────────────────────────────────
   const PARAMS = {
     font: 'New Science Mono',
     fontSize: 25,
     fontWeight: 100,
     lineHeight: 1.15,
+    blendMode: 'normal',
     brightness: 1.0,
     contrast: 1.0,
     saturate: 1.0,
@@ -429,6 +437,7 @@ function init() {
   fType.addBinding(PARAMS, 'fontSize', { min: 8, max: 48, step: 1, label: 'size' }).on('change', (ev) => { applyFontSize(ev.value); });
   fType.addBinding(PARAMS, 'fontWeight', { min: 100, max: 700, step: 100, label: 'weight' }).on('change', (ev) => { applyFontWeight(ev.value); });
   fType.addBinding(PARAMS, 'lineHeight', { min: 0.8, max: 2.5, step: 0.05, label: 'line height' }).on('change', (ev) => { applyLineHeight(ev.value); });
+  fType.addBinding(PARAMS, 'blendMode', { options: { 'normal': 'normal', 'difference': 'difference' }, label: 'blend' }).on('change', (ev) => { applyBlendMode(ev.value); });
   applyFont(PARAMS.font);
   applyFontSize(PARAMS.fontSize);
   applyFontWeight(PARAMS.fontWeight);
