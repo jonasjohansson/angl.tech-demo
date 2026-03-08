@@ -202,7 +202,7 @@ async function init() {
 
   // ─── Scene ─────────────────────────────────────────────────────
   const scene = new THREE.Scene();
-  scene.environmentIntensity = 1.8;
+  scene.environmentIntensity = 0.0;
 
   // Gradient background
   const bgCanvas = document.createElement('canvas');
@@ -233,7 +233,7 @@ async function init() {
   const ambient = new THREE.AmbientLight('#ffffff', 0.15);
   scene.add(ambient);
 
-  const keyLight = new THREE.DirectionalLight('#fff0e0', 3.0);
+  const keyLight = new THREE.DirectionalLight('#fff0e0', 3.5);
   keyLight.position.set(3, 4, 2);
   keyLight.castShadow = true;
   keyLight.shadow.mapSize.width = 2048;
@@ -249,11 +249,11 @@ async function init() {
   keyLight.shadow.radius = 3;
   scene.add(keyLight);
 
-  const fillLight = new THREE.PointLight('#8899bb', 0.4, 20, 1.5);
+  const fillLight = new THREE.PointLight('#8899bb', 0.0, 20, 1.5);
   fillLight.position.set(-3, 2, -1);
   scene.add(fillLight);
 
-  const rimLight = new THREE.SpotLight('#ddeeff', 1.8, 30, Math.PI / 5, 0.6);
+  const rimLight = new THREE.SpotLight('#29343f', 0.0, 30, Math.PI / 5, 0.6);
   rimLight.position.set(-1, 3, -3);
   rimLight.target.position.set(0, 0.3, 0);
   scene.add(rimLight);
@@ -266,7 +266,7 @@ async function init() {
   // Ground shadow plane
   const groundPlane = new THREE.Mesh(
     new THREE.PlaneGeometry(20, 20),
-    new THREE.ShadowMaterial({ opacity: 0.35 })
+    new THREE.ShadowMaterial({ opacity: 0.95 })
   );
   groundPlane.rotation.x = -Math.PI / 2;
   groundPlane.position.y = 0.001;
@@ -304,7 +304,9 @@ async function init() {
             child.castShadow = true;
             child.receiveShadow = true;
             if (child.material && (child.material.isMeshStandardMaterial || child.material.isMeshPhysicalMaterial)) {
-              child.material.envMapIntensity = 1.2;
+              child.material.metalness = 0.52;
+              child.material.roughness = 0.48;
+              child.material.envMapIntensity = 2.2;
             }
           }
         });
@@ -360,7 +362,7 @@ async function init() {
     uniforms: {
       tDiffuse: { value: null },
       uTime: { value: 0 },
-      uGrainAmount: { value: 0.012 },
+      uGrainAmount: { value: 0.008 },
     },
     vertexShader: /* glsl */`
       varying vec2 vUv;
@@ -574,14 +576,14 @@ async function init() {
     rimIntensity: rimLight.intensity,
     envIntensity: scene.environmentIntensity,
     // Material
-    metalness: 0.5,
-    roughness: 0.0,
-    envMapIntensity: 1.2,
+    metalness: 0.52,
+    roughness: 0.48,
+    envMapIntensity: 2.2,
     // Post-FX
     exposure: renderer.toneMappingExposure,
     grainAmount: filmPass.uniforms.uGrainAmount.value,
     // Ground
-    shadowOpacity: 0.35,
+    shadowOpacity: 0.95,
   };
 
   function forEachMaterial(fn) {
@@ -641,7 +643,7 @@ async function init() {
   PARAMS.ambientColor = '#ffffff';
   PARAMS.keyColor = '#fff0e0';
   PARAMS.fillColor = '#8899bb';
-  PARAMS.rimColor = '#ddeeff';
+  PARAMS.rimColor = '#29343f';
 
   fLight.addBinding(PARAMS, 'ambientIntensity', { min: 0, max: 2, step: 0.05, label: 'ambient' }).on('change', (ev) => {
     ambient.intensity = ev.value;
