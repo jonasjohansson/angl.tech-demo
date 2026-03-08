@@ -39,8 +39,8 @@ const CONTEXTS = [
     bgTop: '#f0ebe3', bgMid: '#ddd5c8', bgBottom: '#c8bfb0',
     ambientIntensity: 0.4, ambientColor: '#ffffff',
     keyIntensity: 2.2, keyColor: '#fff5e6',
-    fillIntensity: 0.8, fillColor: '#8899bb',
-    rimIntensity: 1.2, rimColor: '#ffddaa',
+    fillIntensity: 0.0, fillColor: '#8899bb',
+    rimIntensity: 0.0, rimColor: '#ffddaa',
     envIntensity: 0.8, envRotation: 0, exposure: 1.1,
   },
   {
@@ -51,8 +51,8 @@ const CONTEXTS = [
     bgTop: '#e8eaef', bgMid: '#d0d4dc', bgBottom: '#b8bcc8',
     ambientIntensity: 0.35, ambientColor: '#ffffff',
     keyIntensity: 1.8, keyColor: '#ffffff',
-    fillIntensity: 0.7, fillColor: '#99aacc',
-    rimIntensity: 0.8, rimColor: '#ddeeff',
+    fillIntensity: 0.0, fillColor: '#99aacc',
+    rimIntensity: 0.0, rimColor: '#ddeeff',
     envIntensity: 1.0, envRotation: Math.PI * 0.3, exposure: 1.05,
   },
   {
@@ -63,8 +63,8 @@ const CONTEXTS = [
     bgTop: '#d8d8d8', bgMid: '#c0c0c0', bgBottom: '#a8a8a8',
     ambientIntensity: 0.5, ambientColor: '#ffffff',
     keyIntensity: 1.8, keyColor: '#ffffff',
-    fillIntensity: 0.9, fillColor: '#bbccdd',
-    rimIntensity: 0.6, rimColor: '#ddddee',
+    fillIntensity: 0.0, fillColor: '#bbccdd',
+    rimIntensity: 0.0, rimColor: '#ddddee',
     envIntensity: 0.6, envRotation: Math.PI * 0.6, exposure: 1.1,
   },
   {
@@ -75,8 +75,8 @@ const CONTEXTS = [
     bgTop: '#e8e0d4', bgMid: '#d0c4b0', bgBottom: '#b8a890',
     ambientIntensity: 0.35, ambientColor: '#ffffff',
     keyIntensity: 2.0, keyColor: '#fff0dd',
-    fillIntensity: 0.6, fillColor: '#bbaa88',
-    rimIntensity: 1.0, rimColor: '#eeddbb',
+    fillIntensity: 0.0, fillColor: '#bbaa88',
+    rimIntensity: 0.0, rimColor: '#eeddbb',
     envIntensity: 0.7, envRotation: Math.PI * 0.9, exposure: 1.05,
   },
   {
@@ -87,8 +87,8 @@ const CONTEXTS = [
     bgTop: '#e8e8ec', bgMid: '#d0d0d8', bgBottom: '#b0b0bc',
     ambientIntensity: 0.35, ambientColor: '#ffffff',
     keyIntensity: 2.0, keyColor: '#ffffff',
-    fillIntensity: 0.6, fillColor: '#99aabb',
-    rimIntensity: 1.2, rimColor: '#ccddee',
+    fillIntensity: 0.0, fillColor: '#99aabb',
+    rimIntensity: 0.0, rimColor: '#ccddee',
     envIntensity: 0.9, envRotation: Math.PI * 1.2, exposure: 1.15,
   },
   {
@@ -99,8 +99,8 @@ const CONTEXTS = [
     bgTop: '#1a1a1a', bgMid: '#111111', bgBottom: '#080808',
     ambientIntensity: 0.15, ambientColor: '#ffffff',
     keyIntensity: 2.8, keyColor: '#fff0dd',
-    fillIntensity: 0.2, fillColor: '#333333',
-    rimIntensity: 2.0, rimColor: '#ddaa44',
+    fillIntensity: 0.0, fillColor: '#333333',
+    rimIntensity: 0.0, rimColor: '#ddaa44',
     envIntensity: 0.5, envRotation: Math.PI * 0.5, exposure: 1.3,
   },
   {
@@ -111,8 +111,8 @@ const CONTEXTS = [
     bgTop: '#d8ddd4', bgMid: '#c0c8b8', bgBottom: '#a8b0a0',
     ambientIntensity: 0.4, ambientColor: '#ffffff',
     keyIntensity: 1.8, keyColor: '#ffffff',
-    fillIntensity: 0.7, fillColor: '#99aa88',
-    rimIntensity: 0.9, rimColor: '#ffcc99',
+    fillIntensity: 0.0, fillColor: '#99aa88',
+    rimIntensity: 0.0, rimColor: '#ffcc99',
     envIntensity: 0.8, envRotation: Math.PI * 1.8, exposure: 1.1,
   },
   {
@@ -123,8 +123,8 @@ const CONTEXTS = [
     bgTop: '#e0dcd5', bgMid: '#c8c0b5', bgBottom: '#b0a898',
     ambientIntensity: 0.35, ambientColor: '#ffffff',
     keyIntensity: 1.8, keyColor: '#fff8ee',
-    fillIntensity: 0.6, fillColor: '#bbaa88',
-    rimIntensity: 0.8, rimColor: '#ddccaa',
+    fillIntensity: 0.0, fillColor: '#bbaa88',
+    rimIntensity: 0.0, rimColor: '#ddccaa',
     envIntensity: 0.7, envRotation: Math.PI * 1.1, exposure: 1.05,
   },
 ];
@@ -635,27 +635,25 @@ async function init() {
         panelX = MARGIN_LEFT;
       }
 
-      // Get title element to measure its width for underline
-      const titleEl = panel.querySelector('.hotspot-title');
-      const titleWidth = titleEl ? titleEl.offsetWidth : 120;
-
-      // Position panel so the title underline aligns with the callout
+      // Position panel
       const panelY = Math.max(100, Math.min(screen.y - 40, vh - 140));
       panel.style.left = `${panelX}px`;
       panel.style.top = `${panelY}px`;
 
-      // The underline sits below the title
+      // Measure title for precise underline
+      const titleEl = panel.querySelector('.hotspot-title');
       const titleRect = titleEl ? titleEl.getBoundingClientRect() : null;
-      const underlineY = titleRect ? titleRect.bottom : panelY + 48;
+      const titleWidth = titleRect ? titleRect.width : 120;
+      const underlineY = titleRect ? titleRect.bottom : panelY + 40;
 
-      // Underline start/end X
-      let underlineStartX, underlineEndX;
+      // The callout line connects anchor → title edge
+      // For right panels: line goes from anchor rightward to the left edge of the title
+      // For left panels: line goes from anchor leftward to the right edge of the title
+      let titleEdgeX;
       if (hotspot.panelSide === 'right') {
-        underlineStartX = panelX;
-        underlineEndX = panelX + Math.min(titleWidth, 260);
+        titleEdgeX = panelX; // left edge of title
       } else {
-        underlineStartX = panelX;
-        underlineEndX = panelX + Math.min(titleWidth, 260);
+        titleEdgeX = panelX + titleWidth; // right edge of title
       }
 
       // Anchor dot
@@ -665,31 +663,30 @@ async function init() {
       circle.setAttribute('r', 3);
       calloutSvg.appendChild(circle);
 
-      // Horizontal line from anchor to underline start
-      const connectX = hotspot.panelSide === 'right' ? underlineStartX : underlineEndX;
+      // Horizontal line from anchor to title edge
       const line1 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
       line1.setAttribute('x1', screen.x);
       line1.setAttribute('y1', screen.y);
-      line1.setAttribute('x2', connectX);
+      line1.setAttribute('x2', titleEdgeX);
       line1.setAttribute('y2', screen.y);
       calloutSvg.appendChild(line1);
 
       // Vertical segment down to the underline
       if (Math.abs(screen.y - underlineY) > 2) {
         const line2 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-        line2.setAttribute('x1', connectX);
+        line2.setAttribute('x1', titleEdgeX);
         line2.setAttribute('y1', screen.y);
-        line2.setAttribute('x2', connectX);
+        line2.setAttribute('x2', titleEdgeX);
         line2.setAttribute('y2', underlineY);
         calloutSvg.appendChild(line2);
       }
 
-      // Underline beneath the title
+      // Underline beneath the title — spans exactly the title width
       const underline = document.createElementNS('http://www.w3.org/2000/svg', 'line');
       underline.classList.add('callout-underline');
-      underline.setAttribute('x1', underlineStartX);
+      underline.setAttribute('x1', panelX);
       underline.setAttribute('y1', underlineY);
-      underline.setAttribute('x2', underlineEndX);
+      underline.setAttribute('x2', panelX + titleWidth);
       underline.setAttribute('y2', underlineY);
       calloutSvg.appendChild(underline);
     });
