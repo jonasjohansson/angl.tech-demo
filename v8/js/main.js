@@ -613,47 +613,72 @@ async function init() {
 
     const activeStopAngle = STOPS[frame.majorIndex].angle;
 
+    // First pass: compute panel positions and resolve overlaps
+    const placements = [];
     hotspotElements.forEach(({ panel, hotspot, stopAngle }) => {
       const isActive = Math.abs(stopAngle - activeStopAngle) < 0.01;
       if (!isActive) {
         panel.classList.remove('visible');
         panel.style.opacity = 0;
+        placements.push(null);
         return;
       }
-
-      panel.style.opacity = 1;
-      panel.classList.add('visible');
-
       const screen = project3DToScreen(hotspot.anchorLocal);
       const vw = window.innerWidth;
       const vh = window.innerHeight;
-
       let panelX;
       if (hotspot.panelSide === 'right') {
         panelX = vw - MARGIN_RIGHT - 260;
       } else {
         panelX = MARGIN_LEFT;
       }
-
-      // Position panel
       const panelY = Math.max(100, Math.min(screen.y - 40, vh - 140));
+      placements.push({ panel, hotspot, screen, panelX, panelY });
+    });
+
+    // Resolve vertical overlaps: push panels apart per side
+    const MIN_GAP = 16;
+    const activeBySide = { left: [], right: [] };
+    placements.forEach((p, i) => {
+      if (p) activeBySide[p.hotspot.panelSide].push({ placement: p, index: i });
+    });
+    for (const side of ['left', 'right']) {
+      const items = activeBySide[side];
+      if (items.length < 2) continue;
+      items.sort((a, b) => a.placement.panelY - b.placement.panelY);
+      for (let i = 1; i < items.length; i++) {
+        const prev = items[i - 1].placement;
+        const prevHeight = prev.panel.offsetHeight || 80;
+        const minTop = prev.panelY + prevHeight + MIN_GAP;
+        if (items[i].placement.panelY < minTop) {
+          items[i].placement.panelY = minTop;
+        }
+      }
+    }
+
+    // Second pass: position panels and draw callout lines
+    placements.forEach((p) => {
+      if (!p) return;
+      const { panel, hotspot, screen, panelX, panelY } = p;
+
+      panel.style.opacity = 1;
+      panel.classList.add('visible');
       panel.style.left = `${panelX}px`;
       panel.style.top = `${panelY}px`;
 
-      // Measure title for precise underline
+      // Measure title for line target
       const titleEl = panel.querySelector('.hotspot-title');
       const titleRect = titleEl ? titleEl.getBoundingClientRect() : null;
       const titleWidth = titleRect ? titleRect.width : 120;
-      const underlineY = titleRect ? titleRect.bottom : panelY + 40;
+      const titleMidY = titleRect ? (titleRect.top + titleRect.bottom) / 2 : panelY + 20;
 
-      // The callout line connects anchor → title edge
-      // For right panels: line goes from anchor rightward to the left edge of the title
-      // For left panels: line goes from anchor leftward to the right edge of the title
+      // Line connects anchor → title edge (with small gap)
+      const LINE_GAP = 8;
       let titleEdgeX;
       if (hotspot.panelSide === 'right') {
-        titleEdgeX = panelX; // left edge of title
+        titleEdgeX = panelX - LINE_GAP; // just left of title
       } else {
-        titleEdgeX = panelX + titleWidth; // right edge of title
+        titleEdgeX = panelX + titleWidth + LINE_GAP; // just right of title
       }
 
       // Anchor dot
@@ -663,7 +688,7 @@ async function init() {
       circle.setAttribute('r', 3);
       calloutSvg.appendChild(circle);
 
-      // Horizontal line from anchor to title edge
+      // Horizontal line from anchor to title edge X
       const line1 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
       line1.setAttribute('x1', screen.x);
       line1.setAttribute('y1', screen.y);
@@ -671,24 +696,15 @@ async function init() {
       line1.setAttribute('y2', screen.y);
       calloutSvg.appendChild(line1);
 
-      // Vertical segment down to the underline
-      if (Math.abs(screen.y - underlineY) > 2) {
+      // Vertical segment to meet the title midpoint
+      if (Math.abs(screen.y - titleMidY) > 2) {
         const line2 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
         line2.setAttribute('x1', titleEdgeX);
         line2.setAttribute('y1', screen.y);
         line2.setAttribute('x2', titleEdgeX);
-        line2.setAttribute('y2', underlineY);
+        line2.setAttribute('y2', titleMidY);
         calloutSvg.appendChild(line2);
       }
-
-      // Underline beneath the title — spans exactly the title width
-      const underline = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-      underline.classList.add('callout-underline');
-      underline.setAttribute('x1', panelX);
-      underline.setAttribute('y1', underlineY);
-      underline.setAttribute('x2', panelX + titleWidth);
-      underline.setAttribute('y2', underlineY);
-      calloutSvg.appendChild(underline);
     });
   }
 
