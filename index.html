@@ -3,90 +3,24 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ANGL — 3D Demo</title>
-    <link rel="icon" href="data:,">
-    <link rel="stylesheet" href="./style.css" />
-    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js"></script>
+    <title>ANGL — Demo Index</title>
+    <link rel="icon" href="data:," />
   </head>
   <body>
-    <main class="viewer-main">
-      <canvas id="viewer-canvas" class="viewer-canvas"></canvas>
-      <div id="hotspot-container" class="hotspot-container"></div>
-
-      <!-- TE-style overlays -->
-      <div class="gradient-overlay"></div>
-
-      <div class="voxel-container" id="voxel-container"></div>
-
-      <svg class="grain-overlay" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
-        <filter id="grain">
-          <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch"/>
-          <feColorMatrix type="saturate" values="0"/>
-        </filter>
-        <rect width="100%" height="100%" filter="url(#grain)" opacity="1"/>
-      </svg>
-
-      <div id="loading-overlay" class="loading-overlay">
-        <div class="loading-bar-track">
-          <div id="loading-progress" class="loading-bar-fill"></div>
-        </div>
-        <span id="loading-text" class="loading-text">loading...</span>
-      </div>
-
-      <div class="viewer-info">
-        ANGL-ASM-MAIN REV-G
-      </div>
-
-      <div class="context-nav">
-        <div id="context-dots" class="context-dots"></div>
-        <span id="context-label" class="context-label">Scandinavian</span>
-      </div>
-
-      <!-- Hidden model-viewer for AR launch -->
-      <model-viewer
-        id="ar-viewer"
-        src="./models/ANGL-ASM-MAIN_REV-G_FULL.glb"
-        ar
-        ar-modes="webxr scene-viewer quick-look"
-        ar-scale="auto"
-        style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;"
-      ></model-viewer>
-
-      <button id="ar-button" class="ar-button" aria-label="View in AR">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path d="M12 3L20 7.5V16.5L12 21L4 16.5V7.5L12 3Z"/>
-          <path d="M12 12L20 7.5"/>
-          <path d="M12 12V21"/>
-          <path d="M12 12L4 7.5"/>
-        </svg>
-        <span>AR</span>
-      </button>
-    </main>
-
-    <script type="importmap">
-    {
-      "imports": {
-        "three": "https://esm.sh/three@0.171.0",
-        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/",
-        "lil-gui": "https://esm.sh/lil-gui@0.19.2"
-      }
-    }
-    </script>
-    <script type="module" src="./js/main.js"></script>
-    <script>
-      // AR button — activate model-viewer AR on supported devices
-      const arViewer = document.getElementById('ar-viewer');
-      const arButton = document.getElementById('ar-button');
-
-      arViewer.addEventListener('load', () => {
-        if (!arViewer.canActivateAR) {
-          arButton.classList.add('hidden');
-        }
-      });
-
-      arButton.addEventListener('click', () => {
-        arViewer.activateAR();
-      });
-    </script>
+    <h1>ANGL Tech Demo</h1>
+    <ul>
+      <li><a href="v1/">V1</a> — 3D viewer with AR, voxel overlay, grain</li>
+      <li><a href="v2/">V2</a> — Image gallery with curtain wipe effect</li>
+      <li><a href="v3/">V3</a> — Voxel text overlay, wireframe grid</li>
+      <li><a href="v4/">V4</a> — TE-style product page with Tweakpane GUI</li>
+      <li><a href="v5/">V5</a> — Film-style 3D perspective with image gallery</li>
+      <li><a href="v6/">V6</a> — Scroll-driven 360° showcase, isometric view</li>
+      <li><a href="v7/">V7</a> — Scroll-driven 360° with per-stop HDRI environments</li>
+      <li><a href="v8/">V8</a> — Material contexts, floor textures, callout lines</li>
+      <li><a href="v9/">V9</a> — Image-based viewer with Blender-rendered frames</li>
+      <li><a href="v10/">V10</a> — Arrow key navigation between stops</li>
+      <li><a href="v11/">V11</a> — Step-based navigation with floor textures</li>
+      <li><a href="v12/">V12</a> — Isometric camera</li>
+    </ul>
   </body>
 </html>
