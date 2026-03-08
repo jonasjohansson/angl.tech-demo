@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ANGL — V9</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <!-- Scroll container — 25 frames tall -->
+    <div id="scroll-container" class="scroll-container"></div>
+
+    <!-- Fixed viewport for images + overlays -->
+    <div class="viewer-fixed">
+      <div id="frame-container" class="frame-container"></div>
+
+      <!-- SVG layer for callout lines -->
+      <svg id="callout-svg" class="callout-svg" xmlns="http://www.w3.org/2000/svg"></svg>
+
+      <!-- Hotspot text panels -->
+      <div id="hotspot-container" class="hotspot-container"></div>
+
+      <!-- Loading -->
+      <div id="loading-overlay" class="loading-overlay">
+        <div class="loading-bar-track">
+          <div id="loading-progress" class="loading-bar-fill"></div>
+        </div>
+        <span id="loading-text" class="loading-text">loading...</span>
+      </div>
+
+      <!-- Scroll progress indicator -->
+      <div id="scroll-indicator" class="scroll-indicator">
+        <div class="scroll-track">
+          <div id="scroll-thumb" class="scroll-thumb"></div>
+        </div>
+        <div id="stop-dots" class="stop-dots"></div>
+      </div>
+
+    </div>
+
+    <script type="module" src="./js/main.js"></script>
+  </body>
+</html>
