@@ -1,0 +1,154 @@
+/* === Fonts === */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@100;200;300;400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@100;200;300;400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@100;200;300;400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@200;300;400;700;900&display=swap');
+
+@font-face { font-family: 'PP Neue Bit'; src: url('fonts/PPNeueBit-Regular.woff2') format('woff2'), url('fonts/PPNeueBit-Regular.ttf') format('truetype'); font-weight: 400; }
+@font-face { font-family: 'PP Neue Bit'; src: url('fonts/PPNeueBit-Bold.woff2') format('woff2'); font-weight: 700; }
+@font-face { font-family: 'Several Mono'; src: url('fonts/Several-Mono.otf') format('opentype'); font-weight: 400; }
+
+@font-face { font-family: 'Mondwest'; src: url('fonts/Mondwest-Regular.woff2') format('woff2'); font-weight: 400; }
+@font-face { font-family: 'Mondwest'; src: url('fonts/Mondwest-Bold.woff2') format('woff2'); font-weight: 700; }
+@font-face { font-family: 'NeueBit'; src: url('fonts/NeueBit-Regular.woff2') format('woff2'); font-weight: 400; }
+@font-face { font-family: 'NeueBit'; src: url('fonts/NeueBit-Bold.woff2') format('woff2'); font-weight: 700; }
+
+/* === Reset === */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 100%; height: 100%; background: #0a0a0e; font-family: 'Inter', -apple-system, sans-serif; }
+body { overflow: hidden; }
+
+/* === Scroll spacer (unused — wheel-driven) === */
+.scroll-container {
+  display: none;
+}
+
+/* === Fixed viewport === */
+.viewer-fixed {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* === Frame container (replaces canvas) === */
+.frame-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  pointer-events: auto;
+  overflow: hidden;
+}
+.frame-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+}
+.frame-img.active {
+  opacity: 1;
+}
+
+/* === Callout SVG layer === */
+.callout-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 5;
+}
+.callout-svg line {
+  stroke: #ffffff;
+  stroke-width: 1;
+}
+.callout-svg circle {
+  fill: #ffffff;
+}
+
+/* === Hotspot container === */
+.hotspot-container {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 6;
+}
+
+.hotspot-panel {
+  position: absolute;
+  max-width: 260px;
+  opacity: 0;
+  pointer-events: none;
+}
+.hotspot-panel.visible {
+  opacity: 1;
+}
+.hotspot-label {
+  font: 200 11px/1.1 'Inter', sans-serif;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+
+  color: #ffffff;
+}
+.hotspot-title {
+  font: 300 16px/1.15 'Inter', sans-serif;
+  letter-spacing: 0;
+  margin-bottom: 0;
+  padding-bottom: 8px;
+
+  color: #ffffff;
+  display: inline-block;
+}
+.hotspot-desc {
+  font: 200 16px/1.3 'Inter', sans-serif;
+  letter-spacing: 0;
+  margin-top: 8px;
+
+  color: #ffffff;
+}
+
+/* === Loading overlay === */
+.loading-overlay {
+  position: fixed; inset: 0; z-index: 100;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: #f0ebe3;
+  transition: opacity 0.6s ease;
+}
+.loading-overlay.loaded { opacity: 0; pointer-events: none; }
+.loading-bar-track {
+  width: 160px; height: 2px; background: rgba(0,0,0,0.08); border-radius: 1px; overflow: hidden;
+}
+.loading-bar-fill {
+  height: 100%; width: 0; background: rgba(0,0,0,0.2);
+  transition: width 0.3s ease;
+}
+.loading-text {
+  margin-top: 12px; font: 200 11px/1 'Inter', sans-serif;
+  color: rgba(0,0,0,0.3); letter-spacing: 0.06em; text-transform: lowercase;
+}
+
+/* === Scroll indicator (hidden) === */
+.scroll-indicator {
+  display: none;
+}
+
+/* === Tweakpane === */
+.tp-dfwv {
+  position: fixed !important;
+  top: 16px !important;
+  right: 16px !important;
+  z-index: 50 !important;
+}
+
+/* === Mobile === */
+@media (max-width: 768px) {
+  .hotspot-panel { max-width: 180px; }
+  .hotspot-title { font-size: 15px; }
+  .hotspot-desc { font-size: 11px; }
+}
