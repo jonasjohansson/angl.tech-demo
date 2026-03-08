@@ -325,14 +325,18 @@ function init() {
     wheelResetTimeout = setTimeout(() => { wheelAccum = 0; }, 200);
   }, { passive: true });
 
-  // ─── Arrow key navigation ──────────────────────────────────────
+  // ─── Arrow key navigation (single frame steps) ─────────────────
   window.addEventListener('keydown', (e) => {
     if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
       e.preventDefault();
-      goNext();
+      const next = (currentFrameIndex + 1) % UNIQUE_FRAMES;
+      updateFrame(next);
+      updateHotspots();
     } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
       e.preventDefault();
-      goPrev();
+      const prev = (currentFrameIndex - 1 + UNIQUE_FRAMES) % UNIQUE_FRAMES;
+      updateFrame(prev);
+      updateHotspots();
     }
   });
 

@@ -294,25 +294,15 @@ function init() {
   });
   updateHotspots();
 
-  // ─── Arrow key navigation between stops (wrapping) ──────────────
-  function getCurrentStopIndex() {
-    const frame = FRAMES[currentFrameIndex];
-    if (frame.majorIndex >= 0) return frame.majorIndex;
-    return Math.round(currentFrameIndex / 3) % STOPS.length;
-  }
-
+  // ─── Arrow key navigation (single frame steps) ─────────────────
   window.addEventListener('keydown', (e) => {
     if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
       e.preventDefault();
-      const current = getCurrentStopIndex();
-      const next = (current + 1) % STOPS.length;
-      virtualScroll = next * 3 * SCROLL_PER_FRAME;
+      virtualScroll += SCROLL_PER_FRAME;
       updateFromVirtualScroll();
     } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
       e.preventDefault();
-      const current = getCurrentStopIndex();
-      const prev = (current - 1 + STOPS.length) % STOPS.length;
-      virtualScroll = prev * 3 * SCROLL_PER_FRAME;
+      virtualScroll -= SCROLL_PER_FRAME;
       updateFromVirtualScroll();
     }
   });
