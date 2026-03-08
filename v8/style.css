@@ -143,6 +143,7 @@ body { overflow-x: hidden; }
 
 /* === Mobile === */
 @media (max-width: 768px) {
+  .tp-dfwv { display: none !important; }
   .scroll-indicator { right: 20px; }
   .hotspot-panel { max-width: 180px; }
   .hotspot-title { font-size: 15px; }

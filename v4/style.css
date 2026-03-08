@@ -138,3 +138,8 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #1a1a1c; }
 
 /* === Tweakpane === */
 .tp-dfwv { z-index: 50 !important; }
+
+/* === Mobile === */
+@media (max-width: 768px) {
+  .tp-dfwv { display: none !important; }
+}

@@ -376,6 +376,8 @@ body {
 }
 
 @media (max-width: 640px) {
+  .lil-gui { display: none; }
+
   .ar-button {
     bottom: 12px;
     right: 12px;

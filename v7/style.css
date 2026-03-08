@@ -216,6 +216,7 @@ body { overflow-x: hidden; }
 
 /* === Mobile === */
 @media (max-width: 768px) {
+  .tp-dfwv { display: none !important; }
   .te-nav-center { display: none; }
   .te-nav { padding: 20px 24px 0; }
   .te-footer { padding: 0 24px 20px; }
