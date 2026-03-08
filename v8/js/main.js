@@ -712,10 +712,53 @@ async function init() {
   // ─── Tweakpane GUI ─────────────────────────────────────────────
   const pane = new Pane({ title: 'Settings', expanded: true });
 
+  function forEachMaterial(fn) {
+    model.traverse((c) => {
+      if (c.isMesh && c.material && (c.material.isMeshStandardMaterial || c.material.isMeshPhysicalMaterial)) {
+        fn(c.material);
+      }
+    });
+  }
+
+  const ctx0 = CONTEXTS[0];
   const PARAMS = {
+    // Camera
     frustum: frustumSize,
     elevation: orbitElevationRef.value,
     orbitRadius: orbitRadiusRef.value,
+    // Scene
+    bgTop: ctx0.bgTop,
+    bgMid: ctx0.bgMid,
+    bgBottom: ctx0.bgBottom,
+    // Environment
+    envIntensity: ctx0.envIntensity,
+    envRotation: ctx0.envRotation,
+    // Lighting
+    ambientIntensity: ctx0.ambientIntensity,
+    ambientColor: ctx0.ambientColor,
+    keyIntensity: ctx0.keyIntensity,
+    keyColor: ctx0.keyColor,
+    fillIntensity: ctx0.fillIntensity,
+    fillColor: ctx0.fillColor,
+    rimIntensity: ctx0.rimIntensity,
+    rimColor: ctx0.rimColor,
+    // Material (PC body)
+    metalness: 0.52,
+    roughness: 0.48,
+    envMapIntensity: 2.2,
+    // Panel color
+    panelColor: ctx0.panelColor,
+    panelMetalness: ctx0.panelMetalness,
+    panelRoughness: ctx0.panelRoughness,
+    // Ground
+    groundColor: ctx0.floorColor,
+    groundRoughness: ctx0.floorRoughness,
+    groundMetalness: ctx0.floorMetalness,
+    groundEnvMap: 1.5,
+    groundClearcoat: ctx0.floorClearcoat,
+    shadowOpacity: 0.4,
+    // Post-FX
+    exposure: ctx0.exposure,
     grainAmount: filmPass.uniforms.uGrainAmount.value,
   };
 
@@ -733,8 +776,59 @@ async function init() {
   fCam.addBinding(PARAMS, 'elevation', { min: 0, max: 1.2, step: 0.01 }).on('change', (ev) => { orbitElevationRef.value = ev.value; });
   fCam.addBinding(PARAMS, 'orbitRadius', { min: 1.5, max: 8, step: 0.1, label: 'distance' }).on('change', (ev) => { orbitRadiusRef.value = ev.value; });
 
+  // Scene
+  const fScene = pane.addFolder({ title: 'Scene' });
+  fScene.addBinding(PARAMS, 'bgTop', { label: 'bg top' }).on('change', () => { scene.background = buildBackground(PARAMS.bgTop, PARAMS.bgMid, PARAMS.bgBottom); });
+  fScene.addBinding(PARAMS, 'bgMid', { label: 'bg mid' }).on('change', () => { scene.background = buildBackground(PARAMS.bgTop, PARAMS.bgMid, PARAMS.bgBottom); });
+  fScene.addBinding(PARAMS, 'bgBottom', { label: 'bg bottom' }).on('change', () => { scene.background = buildBackground(PARAMS.bgTop, PARAMS.bgMid, PARAMS.bgBottom); });
+
+  // Environment
+  const fEnv = pane.addFolder({ title: 'Environment' });
+  fEnv.addBinding(PARAMS, 'envIntensity', { min: 0, max: 3, step: 0.05, label: 'intensity' }).on('change', (ev) => { scene.environmentIntensity = ev.value; });
+  fEnv.addBinding(PARAMS, 'envRotation', { min: 0, max: Math.PI * 2, step: 0.05, label: 'rotation' }).on('change', (ev) => { scene.environmentRotation = new THREE.Euler(0, ev.value, 0); });
+
+  // Lighting
+  const fLight = pane.addFolder({ title: 'Lighting' });
+  fLight.addBinding(PARAMS, 'ambientIntensity', { min: 0, max: 2, step: 0.05, label: 'ambient' }).on('change', (ev) => { ambient.intensity = ev.value; });
+  fLight.addBinding(PARAMS, 'ambientColor', { label: 'ambient color' }).on('change', (ev) => { ambient.color.set(ev.value); });
+  fLight.addBinding(PARAMS, 'keyIntensity', { min: 0, max: 8, step: 0.1, label: 'key' }).on('change', (ev) => { keyLight.intensity = ev.value; });
+  fLight.addBinding(PARAMS, 'keyColor', { label: 'key color' }).on('change', (ev) => { keyLight.color.set(ev.value); });
+  fLight.addBinding(PARAMS, 'fillIntensity', { min: 0, max: 3, step: 0.1, label: 'fill' }).on('change', (ev) => { fillLight.intensity = ev.value; });
+  fLight.addBinding(PARAMS, 'fillColor', { label: 'fill color' }).on('change', (ev) => { fillLight.color.set(ev.value); });
+  fLight.addBinding(PARAMS, 'rimIntensity', { min: 0, max: 4, step: 0.1, label: 'rim' }).on('change', (ev) => { rimLight.intensity = ev.value; });
+  fLight.addBinding(PARAMS, 'rimColor', { label: 'rim color' }).on('change', (ev) => { rimLight.color.set(ev.value); });
+
+  // Material (PC body)
+  const fMat = pane.addFolder({ title: 'Material' });
+  fMat.addBinding(PARAMS, 'metalness', { min: 0, max: 1, step: 0.01 }).on('change', (ev) => { forEachMaterial((m) => { m.metalness = ev.value; m.needsUpdate = true; }); });
+  fMat.addBinding(PARAMS, 'roughness', { min: 0, max: 1, step: 0.01 }).on('change', (ev) => { forEachMaterial((m) => { m.roughness = ev.value; m.needsUpdate = true; }); });
+  fMat.addBinding(PARAMS, 'envMapIntensity', { min: 0, max: 5, step: 0.1, label: 'env map' }).on('change', (ev) => { forEachMaterial((m) => { m.envMapIntensity = ev.value; m.needsUpdate = true; }); });
+
+  // Panel color
+  const fPanel = pane.addFolder({ title: 'Panel Color' });
+  fPanel.addBinding(PARAMS, 'panelColor', { label: 'color' }).on('change', (ev) => {
+    const col = new THREE.Color(ev.value);
+    panelMeshes.forEach((obj) => { obj.traverse((c) => { if (c.isMesh && c.material) { c.material.color.copy(col); c.material.needsUpdate = true; } }); });
+  });
+  fPanel.addBinding(PARAMS, 'panelMetalness', { min: 0, max: 1, step: 0.01, label: 'metalness' }).on('change', (ev) => {
+    panelMeshes.forEach((obj) => { obj.traverse((c) => { if (c.isMesh && c.material) { c.material.metalness = ev.value; c.material.needsUpdate = true; } }); });
+  });
+  fPanel.addBinding(PARAMS, 'panelRoughness', { min: 0, max: 1, step: 0.01, label: 'roughness' }).on('change', (ev) => {
+    panelMeshes.forEach((obj) => { obj.traverse((c) => { if (c.isMesh && c.material) { c.material.roughness = ev.value; c.material.needsUpdate = true; } }); });
+  });
+
+  // Ground
+  const fGround = pane.addFolder({ title: 'Ground' });
+  fGround.addBinding(PARAMS, 'groundColor', { label: 'color' }).on('change', (ev) => { groundMat.color.set(ev.value); });
+  fGround.addBinding(PARAMS, 'groundRoughness', { min: 0, max: 1, step: 0.01, label: 'roughness' }).on('change', (ev) => { groundMat.roughness = ev.value; });
+  fGround.addBinding(PARAMS, 'groundMetalness', { min: 0, max: 1, step: 0.01, label: 'metalness' }).on('change', (ev) => { groundMat.metalness = ev.value; });
+  fGround.addBinding(PARAMS, 'groundEnvMap', { min: 0, max: 5, step: 0.1, label: 'env reflection' }).on('change', (ev) => { groundMat.envMapIntensity = ev.value; });
+  fGround.addBinding(PARAMS, 'groundClearcoat', { min: 0, max: 1, step: 0.01, label: 'clearcoat' }).on('change', (ev) => { groundMat.clearcoat = ev.value; });
+  fGround.addBinding(PARAMS, 'shadowOpacity', { min: 0, max: 1, step: 0.05, label: 'shadow' }).on('change', (ev) => { shadowPlane.material.opacity = ev.value; });
+
   // Post-FX
   const fFx = pane.addFolder({ title: 'Post-FX' });
+  fFx.addBinding(PARAMS, 'exposure', { min: 0.5, max: 4, step: 0.05 }).on('change', (ev) => { renderer.toneMappingExposure = ev.value; });
   fFx.addBinding(PARAMS, 'grainAmount', { min: 0, max: 0.06, step: 0.001, label: 'grain' }).on('change', (ev) => { filmPass.uniforms.uGrainAmount.value = ev.value; });
 
   // ─── Fade out loader ───────────────────────────────────────────
