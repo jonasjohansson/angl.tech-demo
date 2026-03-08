@@ -34,15 +34,21 @@ body { overflow-x: hidden; }
   pointer-events: none;
   z-index: 5;
 }
+.callout-svg {
+  mix-blend-mode: difference;
+}
 .callout-svg line {
-  stroke: rgba(0, 0, 0, 0.25);
+  stroke: #ffffff;
   stroke-width: 1;
+  opacity: 0.6;
 }
 .callout-svg .callout-underline {
   stroke-width: 1.5;
+  opacity: 0.8;
 }
 .callout-svg circle {
-  fill: rgba(0, 0, 0, 0.5);
+  fill: #ffffff;
+  opacity: 0.8;
 }
 
 /* === Hotspot container === */
@@ -65,23 +71,26 @@ body { overflow-x: hidden; }
 }
 .hotspot-label {
   font: 500 11px/1 'SF Mono', 'Menlo', monospace;
-  color: rgba(0, 0, 0, 0.3);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   margin-bottom: 10px;
+  mix-blend-mode: difference;
+  color: #ffffff;
 }
 .hotspot-title {
   font: 600 16px/1.3 -apple-system, 'Helvetica Neue', 'SF Pro Text', sans-serif;
-  color: rgba(0, 0, 0, 0.75);
   letter-spacing: 0;
   margin-bottom: 0;
   padding-bottom: 10px;
+  mix-blend-mode: difference;
+  color: #ffffff;
 }
 .hotspot-desc {
   font: 400 16px/1.5 -apple-system, 'Helvetica Neue', 'SF Pro Text', sans-serif;
-  color: rgba(0, 0, 0, 0.45);
   letter-spacing: 0;
   margin-top: 10px;
+  mix-blend-mode: difference;
+  color: #ffffff;
 }
 
 /* === Context label (bottom center) === */
@@ -92,9 +101,10 @@ body { overflow-x: hidden; }
   transform: translateX(-50%);
   z-index: 10;
   font: 400 11px/1 'SF Mono', 'Menlo', monospace;
-  color: rgba(0, 0, 0, 0.25);
+  color: #ffffff;
   letter-spacing: 0.12em;
   text-transform: lowercase;
+  mix-blend-mode: difference;
   pointer-events: none;
   user-select: none;
   transition: color 0.3s ease;
