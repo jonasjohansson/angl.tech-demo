@@ -175,15 +175,30 @@ async function init() {
   bounceLight.position.set(0, -0.5, 0);
   scene.add(bounceLight);
 
-  // Ground shadow plane
-  const groundPlane = new THREE.Mesh(
-    new THREE.PlaneGeometry(20, 20),
-    new THREE.ShadowMaterial({ opacity: 0.95 })
-  );
+  // Ground: physical material that reflects HDRI
+  const groundMat = new THREE.MeshPhysicalMaterial({
+    color: 0x111115,
+    metalness: 0.0,
+    roughness: 0.35,
+    envMapIntensity: 1.5,
+    clearcoat: 0.3,
+    clearcoatRoughness: 0.4,
+  });
+  const groundPlane = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), groundMat);
   groundPlane.rotation.x = -Math.PI / 2;
-  groundPlane.position.y = 0.001;
+  groundPlane.position.y = -0.001;
   groundPlane.receiveShadow = true;
   scene.add(groundPlane);
+
+  // Shadow overlay on top of ground
+  const shadowPlane = new THREE.Mesh(
+    new THREE.PlaneGeometry(20, 20),
+    new THREE.ShadowMaterial({ opacity: 0.7 })
+  );
+  shadowPlane.rotation.x = -Math.PI / 2;
+  shadowPlane.position.y = 0.002;
+  shadowPlane.receiveShadow = true;
+  scene.add(shadowPlane);
 
   // ─── Load model ────────────────────────────────────────────────
   progressText.textContent = 'loading model...';
@@ -578,7 +593,16 @@ async function init() {
 
   // Ground
   const fGround = pane.addFolder({ title: 'Ground' });
-  fGround.addBinding(PARAMS, 'shadowOpacity', { min: 0, max: 1, step: 0.05, label: 'shadow opacity' }).on('change', (ev) => { groundPlane.material.opacity = ev.value; });
+  PARAMS.groundColor = '#111115';
+  PARAMS.groundRoughness = 0.35;
+  PARAMS.groundEnvMap = 1.5;
+  PARAMS.groundClearcoat = 0.3;
+
+  fGround.addBinding(PARAMS, 'groundColor', { label: 'color' }).on('change', (ev) => { groundMat.color.set(ev.value); });
+  fGround.addBinding(PARAMS, 'groundRoughness', { min: 0, max: 1, step: 0.01, label: 'roughness' }).on('change', (ev) => { groundMat.roughness = ev.value; });
+  fGround.addBinding(PARAMS, 'groundEnvMap', { min: 0, max: 5, step: 0.1, label: 'env reflection' }).on('change', (ev) => { groundMat.envMapIntensity = ev.value; });
+  fGround.addBinding(PARAMS, 'groundClearcoat', { min: 0, max: 1, step: 0.01, label: 'clearcoat' }).on('change', (ev) => { groundMat.clearcoat = ev.value; });
+  fGround.addBinding(PARAMS, 'shadowOpacity', { min: 0, max: 1, step: 0.05, label: 'shadow opacity' }).on('change', (ev) => { shadowPlane.material.opacity = ev.value; });
 
   // ─── Fade out loader ───────────────────────────────────────────
   progressText.textContent = 'ready';
