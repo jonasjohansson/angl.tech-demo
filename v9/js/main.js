@@ -349,6 +349,7 @@ function init() {
     'Source Code Pro': "'Source Code Pro', monospace",
     'Mondwest': "'Mondwest', sans-serif",
     'NeueBit': "'NeueBit', monospace",
+    'New Science Mono': "'new-science-mono', monospace",
   };
   const FONT_KEYS = Object.keys(FONT_OPTIONS);
 
@@ -374,11 +375,18 @@ function init() {
     });
   }
 
+  function applyFontWeight(weight) {
+    document.querySelectorAll('.hotspot-label, .hotspot-title, .hotspot-desc').forEach((el) => {
+      el.style.fontWeight = weight;
+    });
+  }
+
   // ─── Tweakpane GUI ────────────────────────────────────────────
   const PARAMS = {
-    font: 'NeueBit',
-    fontSize: 45,
-    lineHeight: 0.8,
+    font: 'New Science Mono',
+    fontSize: 25,
+    fontWeight: 100,
+    lineHeight: 1.15,
     brightness: 1.0,
     contrast: 1.0,
     saturate: 1.0,
@@ -419,9 +427,11 @@ function init() {
   const fType = pane.addFolder({ title: 'Typography' });
   fType.addBinding(PARAMS, 'font', { options: Object.fromEntries(FONT_KEYS.map(k => [k, k])), label: 'font' }).on('change', (ev) => { applyFont(ev.value); });
   fType.addBinding(PARAMS, 'fontSize', { min: 8, max: 48, step: 1, label: 'size' }).on('change', (ev) => { applyFontSize(ev.value); });
+  fType.addBinding(PARAMS, 'fontWeight', { min: 100, max: 700, step: 100, label: 'weight' }).on('change', (ev) => { applyFontWeight(ev.value); });
   fType.addBinding(PARAMS, 'lineHeight', { min: 0.8, max: 2.5, step: 0.05, label: 'line height' }).on('change', (ev) => { applyLineHeight(ev.value); });
   applyFont(PARAMS.font);
   applyFontSize(PARAMS.fontSize);
+  applyFontWeight(PARAMS.fontWeight);
   applyLineHeight(PARAMS.lineHeight);
 
   const fImage = pane.addFolder({ title: 'Image' });
