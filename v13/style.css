@@ -1,0 +1,239 @@
+/* === Fonts === */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@100;200;300;400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@100;200;300;400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@100;200;300;400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@200;300;400;700;900&display=swap');
+
+@font-face { font-family: 'PP Neue Bit'; src: url('fonts/PPNeueBit-Regular.woff2') format('woff2'), url('fonts/PPNeueBit-Regular.ttf') format('truetype'); font-weight: 400; }
+@font-face { font-family: 'PP Neue Bit'; src: url('fonts/PPNeueBit-Bold.woff2') format('woff2'); font-weight: 700; }
+@font-face { font-family: 'Several Mono'; src: url('fonts/Several-Mono.otf') format('opentype'); font-weight: 400; }
+
+@font-face { font-family: 'Mondwest'; src: url('fonts/Mondwest-Regular.woff2') format('woff2'); font-weight: 400; }
+@font-face { font-family: 'Mondwest'; src: url('fonts/Mondwest-Bold.woff2') format('woff2'); font-weight: 700; }
+@font-face { font-family: 'NeueBit'; src: url('fonts/NeueBit-Regular.woff2') format('woff2'); font-weight: 400; }
+@font-face { font-family: 'NeueBit'; src: url('fonts/NeueBit-Bold.woff2') format('woff2'); font-weight: 700; }
+
+/* === Reset === */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 100%; height: 100%; background: #0a0a0e; font-family: 'Inter', -apple-system, sans-serif; }
+body { overflow: hidden; }
+
+/* === Fixed viewport === */
+.viewer-fixed {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* === Frame container — full viewport === */
+.frame-container {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: auto;
+  overflow: hidden;
+}
+.frame-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+}
+.frame-img.active {
+  opacity: 1;
+}
+
+/* === Callout SVG layer (desktop) === */
+.callout-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 5;
+}
+.callout-svg line {
+  stroke: #ffffff;
+  stroke-width: 1;
+}
+.callout-svg circle {
+  fill: #ffffff;
+}
+
+/* === Hotspot container (desktop panels) === */
+.hotspot-container {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 6;
+}
+
+.hotspot-panel {
+  position: absolute;
+  max-width: 260px;
+  opacity: 0;
+  pointer-events: none;
+}
+.hotspot-panel.visible {
+  opacity: 1;
+}
+.hotspot-label {
+  font: 200 11px/1.1 'Inter', sans-serif;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  color: #ffffff;
+}
+.hotspot-title {
+  font: 300 16px/1.15 'Inter', sans-serif;
+  letter-spacing: 0;
+  margin-bottom: 0;
+  padding-bottom: 8px;
+  color: #ffffff;
+  display: inline-block;
+}
+.hotspot-desc {
+  font: 200 16px/1.3 'Inter', sans-serif;
+  letter-spacing: 0;
+  margin-top: 8px;
+  color: #ffffff;
+}
+
+/* === Hotspot dots (mobile) === */
+.hotspot-dots {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 7;
+  display: none;
+}
+
+.hotspot-dot {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  transform: translate(-50%, -50%);
+  pointer-events: auto;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.hotspot-dot-inner {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.9);
+  border: 2px solid rgba(255, 255, 255, 0.4);
+}
+
+.hotspot-dot-pulse {
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  animation: dot-pulse 2s ease-out infinite;
+}
+
+@keyframes dot-pulse {
+  0% { transform: scale(0.8); opacity: 1; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+
+.hotspot-dot.active .hotspot-dot-inner {
+  background: #ffffff;
+}
+
+/* === Mobile info card === */
+.mobile-card {
+  display: none;
+  position: absolute;
+  z-index: 10;
+  background: rgba(10, 10, 14, 0.88);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 20px 24px;
+  max-width: 280px;
+  pointer-events: auto;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+.mobile-card.visible {
+  display: block;
+  opacity: 1;
+  transform: translateY(0);
+}
+.mobile-card-close {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 20px;
+  cursor: pointer;
+  padding: 4px;
+  line-height: 1;
+}
+.mobile-card-tag {
+  font: 200 10px/1.1 'Inter', sans-serif;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 6px;
+}
+.mobile-card-title {
+  font: 300 15px/1.2 'Inter', sans-serif;
+  color: #ffffff;
+  margin-bottom: 6px;
+}
+.mobile-card-desc {
+  font: 200 13px/1.4 'Inter', sans-serif;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+/* === Loading overlay === */
+.loading-overlay {
+  position: fixed; inset: 0; z-index: 100;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: #f0ebe3;
+  transition: opacity 0.6s ease;
+}
+.loading-overlay.loaded { opacity: 0; pointer-events: none; }
+.loading-bar-track {
+  width: 160px; height: 2px; background: rgba(0,0,0,0.08); border-radius: 1px; overflow: hidden;
+}
+.loading-bar-fill {
+  height: 100%; width: 0; background: rgba(0,0,0,0.2);
+  transition: width 0.3s ease;
+}
+.loading-text {
+  margin-top: 12px; font: 200 11px/1 'Inter', sans-serif;
+  color: rgba(0,0,0,0.3); letter-spacing: 0.06em; text-transform: lowercase;
+}
+
+/* === Tweakpane === */
+.tp-dfwv {
+  position: fixed !important;
+  top: 16px !important;
+  right: 16px !important;
+  z-index: 50 !important;
+}
+
+/* === Mobile === */
+@media (max-width: 768px) {
+  .tp-dfwv { display: none !important; }
+
+  /* Hide desktop hotspots, show dots */
+  .hotspot-container { display: none !important; }
+  .callout-svg { display: none !important; }
+  .hotspot-dots { display: block !important; }
+}
