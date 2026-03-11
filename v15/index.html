@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ANGL — V15</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <!-- Scroll container — drives Theatre.js sequence -->
+    <div id="scroll-container" class="scroll-container"></div>
+
+    <!-- Fixed viewport for 3D + overlays -->
+    <div class="viewer-fixed">
+      <canvas id="viewer-canvas" class="viewer-canvas"></canvas>
+
+      <!-- SVG layer for callout lines -->
+      <svg id="callout-svg" class="callout-svg" xmlns="http://www.w3.org/2000/svg"></svg>
+
+      <!-- Hotspot text panels -->
+      <div id="hotspot-container" class="hotspot-container"></div>
+
+      <!-- Loading -->
+      <div id="loading-overlay" class="loading-overlay">
+        <div class="loading-bar-track">
+          <div id="loading-progress" class="loading-bar-fill"></div>
+        </div>
+        <span id="loading-text" class="loading-text">loading...</span>
+      </div>
+
+      <!-- Context label -->
+      <div id="env-label" class="env-label">scandinavian</div>
+
+      <!-- Scroll progress indicator -->
+      <div id="scroll-indicator" class="scroll-indicator">
+        <div class="scroll-track">
+          <div id="scroll-thumb" class="scroll-thumb"></div>
+        </div>
+        <div id="stop-dots" class="stop-dots"></div>
+      </div>
+
+      <!-- Theatre.js hint -->
+      <div id="theatre-hint" class="theatre-hint">
+        Add <code>?studio</code> to URL for Theatre.js timeline editor · Press <code>T</code> to toggle keyframe override
+      </div>
+    </div>
+
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://esm.sh/three@0.171.0",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/",
+        "tweakpane": "https://esm.sh/tweakpane@4.0.5"
+      }
+    }
+    </script>
+
+    <!-- Polyfill process.env for Theatre.js studio (checks for updates) -->
+    <script>window.process = { env: {} };</script>
+
+    <!-- Theatre.js browser bundle (global `Theatre` with .core and .studio) -->
+    <script type="module">
+      const useStudio = new URLSearchParams(window.location.search).has('studio');
+      const bundleUrl = useStudio
+        ? 'https://cdn.jsdelivr.net/npm/@theatre/browser-bundles@0.5.1/dist/core-and-studio.js'
+        : 'https://cdn.jsdelivr.net/npm/@theatre/browser-bundles@0.5.1/dist/core-only.min.js';
+      await import(bundleUrl);
+      // Initialize studio immediately (before any project is created)
+      if (useStudio && window.Theatre.studio) {
+        window.Theatre.studio.initialize();
+      }
+      await import('./js/main.js');
+    </script>
+  </body>
+</html>
